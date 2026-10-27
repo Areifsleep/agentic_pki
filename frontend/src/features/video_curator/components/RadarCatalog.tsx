@@ -160,7 +160,7 @@ export function RadarCatalog() {
           {topics.length > 0 && (
             <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-mono text-[#a1a1aa] shrink-0">Pilar Sasaran:</span>
+                <span className="text-[11px] font-mono text-[#a1a1aa] shrink-0">Topik Fokus:</span>
                 {topics.map((t) => (
                   <button
                     key={t}

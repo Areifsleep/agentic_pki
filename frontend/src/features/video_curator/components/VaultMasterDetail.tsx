@@ -394,10 +394,10 @@ export function VaultMasterDetail() {
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-sm font-medium text-[#18181b]">
-                      Dialog Multi-Catatan Vault (RAG)
+                      Tanya Lintas Vault
                     </h3>
                     <p className="text-xs text-[#71717a] max-w-md leading-relaxed">
-                      Ajukan pertanyaan lintas seluruh catatan. Sistem menggunakan 2-Stage Hierarchical Router untuk mencari dokumen relevan dan menghasilkan jawaban berbasis data lokal.
+                      Cari tahu relasi atau jawaban dari topik-topik berbeda secara menyeluruh berdasarkan data catatan lokal.
                     </p>
                   </div>
                 </div>

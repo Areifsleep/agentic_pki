@@ -115,12 +115,12 @@ export function ReadingSanctuary() {
           </div>
           <div className="space-y-1.5">
             <h2 className="text-xl font-normal text-[#17171c] tracking-tight">
-              The Reading Sanctuary is Quiet
+              Belum Ada Materi Terpilih
             </h2>
             <p className="text-xs text-[#71717a] leading-relaxed">
               {status === 'PROCESSING'
                 ? 'Agen sedang mengekstrak materi dan merangkum transkrip...'
-                : 'Pilih catatan dari Riwayat Vault atau tempel tautan video YouTube di Command Deck untuk memulai membaca.'}
+                : 'Pilih catatan dari riwayat vault atau masukkan tautan YouTube di panel kiri untuk mulai membaca.'}
             </p>
           </div>
         </div>

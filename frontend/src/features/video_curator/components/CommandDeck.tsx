@@ -139,9 +139,9 @@ export function CommandDeck() {
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
             Command Deck
           </span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#edfce9] text-[#003c33] font-medium border border-[#b2e5aa]">
+          {/* <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#edfce9] text-[#003c33] font-medium border border-[#b2e5aa]">
             Level 2 Agent
-          </span>
+          </span> */}
         </div>
       </div>
 

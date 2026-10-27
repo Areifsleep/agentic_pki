@@ -109,7 +109,7 @@ function FocusStudioEditor({ initialData, vaultPath }: FocusStudioEditorProps) {
 
 > Berkas ini menjadi acuan agen dalam mengevaluasi relevansi video (Learning Radar) dan sintesis materi.
 
-## Pilar Topik Utama
+## Topik Fokus
 ${topics.map((t) => `- #${t}`).join('\n') || '- #General Knowledge'}
 
 ## Preferensi Kedalaman
@@ -164,9 +164,9 @@ ${antiGoals.map((a) => `- ${a}`).join('\n') || '- Video bertele-tele tanpa subst
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold text-[#18181b] flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-[#1863dc]" />
-              <span>Pilar Topik Utama (Pill Chips)</span>
+              <span>Topik Fokus</span>
             </label>
-            <span className="text-[10px] text-[#a1a1aa] font-mono">{topics.length} pilar</span>
+            <span className="text-[10px] text-[#a1a1aa] font-mono">{topics.length} fokus</span>
           </div>
 
           {/* Chips list */}
@@ -212,7 +212,7 @@ ${antiGoals.map((a) => `- ${a}`).join('\n') || '- Video bertele-tele tanpa subst
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-[#18181b]">
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Variasi Kueri YouTube (0 Token saat Cari)</span>
+              <span>Variasi Kueri YouTube</span>
             </div>
             <button
               type="button"
