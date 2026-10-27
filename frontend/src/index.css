@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-canvas: #ffffff;
+  --color-mineral: #f9f9fb;
+  --color-soft-stone: #eeece7;
+  --color-hairline: #e4e4e7;
+  --color-hairline-dark: #d9d9dd;
+  --color-ink: #18181b;
+  --color-ink-muted: #52525b;
+  --color-ink-light: #71717a;
+  --color-cohere-black: #17171c;
+  --color-deep-green: #003c33;
+  --color-coral: #ff7759;
+  --color-coral-soft: #ffad9b;
+  --color-focus-blue: #1863dc;
+
+  --font-display: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif-reading: "Newsreader", "Charis SIL", "Georgia", "Cambria", serif;
+}
+
+@layer base {
+  body {
+    background-color: #f9f9fb;
+    color: #18181b;
+    font-family: var(--font-body);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+/* Ambient 2px Progress Bar at top edge */
+@keyframes ambient-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-ambient-progress {
+  animation: ambient-slide 1.5s ease-in-out infinite;
+}
+
+/* Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e4e4e7;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4d4d8;
+}

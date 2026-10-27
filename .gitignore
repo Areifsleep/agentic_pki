@@ -1,0 +1,96 @@
+# ==========================================
+# 1. OS & Code Editor
+# ==========================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ==========================================
+# 2. Repomix (AI Context Bundler)
+# ==========================================
+repomix-output.*
+repomix-output/
+.repomix/
+
+# ==========================================
+# 3. Secrets & Environment Files
+# ==========================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ==========================================
+# 4. Backend (Python & FastAPI)
+# ==========================================
+# Virtual environments
+venv/
+.venv/
+env/
+backend/venv/
+backend/.venv/
+
+# Bytecode & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+backend/**/__pycache__/
+
+# Testing, Coverage & Type Checkers
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Packaging & Builds
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs & Local Storage
+*.log
+logs/
+*.sqlite
+*.sqlite3
+*.db
+.curator_config.json
+
+# ==========================================
+# 5. Frontend (React, Vite & Node)
+# ==========================================
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Vite Caches & Build Outputs
+dist/
+dist-ssr/
+frontend/dist/
+.vite/
+frontend/.vite/
+my-app/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# ==========================================
+# 6. Local Vault & Test Artifacts
+# ==========================================
+test_vault/
+temp/
+tmp/
