@@ -22,6 +22,7 @@ from app.features.video_curator.tools.obsidian_tool import (
 from app.features.video_curator.tools.radar_tool import (
     CandidateVideo,
     RadarSearchResult,
+    _parse_video_renderer,
     extract_continuation_token,
     parse_duration_to_minutes,
     search_candidate_videos,
@@ -56,6 +57,35 @@ class TestRadarToolScrapingAndPagination:
         assert parse_duration_to_minutes("05:30") == 5.5
         assert parse_duration_to_minutes("1:00:00") == 60.0
         assert parse_duration_to_minutes("45") == 0.75
+
+    def test_duration_filter_range_rejections(self):
+        # Short video < 3m should be rejected
+        short_renderer = {
+            "videoId": "short123456",
+            "title": {"runs": [{"text": "Short Video"}]},
+            "lengthText": {"simpleText": "02:45"},
+        }
+        assert _parse_video_renderer(short_renderer) is None
+
+        # Massive video > 240m should be rejected
+        huge_renderer = {
+            "videoId": "huge1234567",
+            "title": {"runs": [{"text": "Massive Stream"}]},
+            "lengthText": {"simpleText": "04:30:00"},
+        }
+        assert _parse_video_renderer(huge_renderer) is None
+
+        # Valid 5m video should be accepted
+        valid_renderer = {
+            "videoId": "valid123456",
+            "title": {"runs": [{"text": "Good Tutorial"}]},
+            "lengthText": {"simpleText": "05:15"},
+            "ownerText": {"runs": [{"text": "Python Dev"}]},
+        }
+        cand = _parse_video_renderer(valid_renderer)
+        assert cand is not None
+        assert cand.video_id == "valid123456"
+        assert cand.duration_str == "05:15"
 
     def test_extract_continuation_token(self):
         data = {

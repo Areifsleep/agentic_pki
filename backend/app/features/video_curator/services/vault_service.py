@@ -13,7 +13,11 @@ from google.genai import types
 
 from app.core.config import settings
 from app.core.errors import LLMServiceError
-from app.features.video_curator.schemas import VaultChatResponse, VaultNoteItem
+from app.features.video_curator.schemas import (
+    VaultChatResponse,
+    VaultNoteItem,
+    VaultRouterSchema,
+)
 from app.features.video_curator.services.llm_client import get_genai_client
 from app.features.video_curator.services.prompts import (
     build_vault_router_prompt,
@@ -111,10 +115,19 @@ def answer_vault_chat(
             contents=router_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=VaultRouterSchema,
                 temperature=0.1,
             ),
         )
-        r_parsed = json.loads(r_resp.text or "{}")
+        r_text = (r_resp.text or "").strip()
+        if r_text.startswith("```json"):
+            r_text = r_text[7:].strip()
+        elif r_text.startswith("```"):
+            r_text = r_text[3:].strip()
+        if r_text.endswith("```"):
+            r_text = r_text[:-3].strip()
+
+        r_parsed = json.loads(r_text or "{}", strict=False)
         if isinstance(r_parsed, dict) and "selected_files" in r_parsed:
             selected_files = [str(f) for f in r_parsed["selected_files"] if f]
     except Exception:

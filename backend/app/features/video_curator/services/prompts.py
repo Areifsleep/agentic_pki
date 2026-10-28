@@ -92,15 +92,15 @@ def build_synthesis_prompt(
             "- ATURAN PENENTUAN FOLDER (FORMAT: 'Domain/Subdomain'):\n"
             "  1. Kategori tingkat pertama (Domain) WAJIB berupa payung besar (misal: Backend, Frontend, DevOps, Investment, Skincare, Machine Learning).\n"
             "  2. Subkategori tingkat kedua berupa topik/teknologi spesifik (misal: FastAPI, Docker, PostgreSQL, IHSG, Retinol).\n"
-            "  3. Jika domain cocok dengan folder eksisting, GUNAKAN domain tersebut (misal: 'Backend/FastAPI').\n"
-            "  4. Jika topiknya sama sekali baru, BUAT Domain baru yang relevan (misal: 'Mobile/Flutter'), JANGAN memaksakan ke folder yang tidak nyambung (seperti memasukkan materi koding ke folder IHSG)."
+            "  3. KELONGGARAN DOMAIN BARU: Gunakan Domain yang sudah ada HANYA jika serumpun. Jika topik video berada di domain baru, BUAT Domain baru tingkat tinggi (contoh: jika folder eksisting hanya ada 'Investment', dan materi video adalah tutorial 'FastAPI', BUAT Domain baru 'Backend/FastAPI', JANGAN memaksakan ke folder Investment/IHSG).\n"
+            "  4. Contoh penamaan valid: 'Backend/FastAPI', 'DevOps/Docker', 'Investment/IHSG'."
         )
     else:
         taxonomy_rule = (
             "- ATURAN PENENTUAN FOLDER (FORMAT: 'Domain/Subdomain'):\n"
             "  1. Kategori tingkat pertama (Domain) WAJIB berupa payung besar (misal: Backend, Frontend, DevOps, Investment, Skincare, Machine Learning).\n"
             "  2. Subkategori tingkat kedua berupa topik/teknologi spesifik (misal: FastAPI, Docker, PostgreSQL, IHSG, Retinol).\n"
-            "  Contoh format valid: 'Backend/FastAPI', 'DevOps/Docker', 'Investment/IHSG'."
+            "  3. Contoh format valid: 'Backend/FastAPI', 'DevOps/Docker', 'Investment/IHSG'."
         )
 
     # 5. Complete system prompt template
@@ -195,7 +195,7 @@ TARGET BELAJAR PENGGUNA:
 - Hal yang Dihindari (Anti-Goals): {anti_goals_str}
 
 ATURAN PENILAIAN (MATCH SCORE 0-100):
-1. ATURAN PILAR TUNGGAL (OR LOGIC): Jangan merata-ratakan skor antar pilar. Jika video SANGAT COCOK dengan SALAH SATU pilar topik saja, jadikan pilar tersebut sebagai acuan utama dan berikan skor pilar maksimal (70-90%).
+1. ATURAN PILAR TUNGGAL (OR LOGIC): Jangan merata-ratakan skor antar pilar. Jika video SANGAT COCOK dengan SALAH SATU pilar topik saja, jadikan pilar tersebut sebagai acuan utama dan berikan skor maksimal (85–100%). Jangan memotong skor hanya karena video tidak membahas pilar-pilar lainnya.
 2. PEMBOBOTAN SKOR:
    - Keselarasan dengan minimal 1 pilar topik: bobot 60%
    - Kesesuaian tingkat kedalaman materi ({depth_preset}): bobot 20%

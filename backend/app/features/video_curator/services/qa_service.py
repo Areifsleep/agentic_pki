@@ -10,7 +10,7 @@ from google.genai import types
 
 from app.core.config import settings
 from app.core.errors import LLMServiceError
-from app.features.video_curator.schemas import VideoQAResponse
+from app.features.video_curator.schemas import VideoQAResponse, VideoQASchema
 from app.features.video_curator.services.llm_client import get_genai_client
 from app.features.video_curator.services.prompts import build_qa_prompt
 from app.features.video_curator.services.transcript_service import (
@@ -56,12 +56,21 @@ def answer_video_question(
             contents=qa_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=VideoQASchema,
                 temperature=0.2,
             ),
         )
 
         response_text = response.text or ""
-        parsed = json.loads(response_text)
+        cleaned = response_text.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:].strip()
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:].strip()
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].strip()
+
+        parsed = json.loads(cleaned, strict=False)
 
         answer = str(parsed.get("answer", "Maaf, informasi tersebut tidak ditemukan dalam transkrip.")).strip()
         timestamp_ref = parsed.get("timestamp_reference")

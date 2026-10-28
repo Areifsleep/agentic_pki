@@ -5,6 +5,7 @@ automatic category assignment, and physical persistence to local Obsidian Vault.
 """
 
 import json
+import re
 import time
 from typing import Any, Dict, Optional
 from google import genai
@@ -14,6 +15,7 @@ from app.core.config import settings
 from app.core.errors import LLMServiceError
 from app.features.video_curator.schemas import (
     CuratorConfig,
+    NoteSynthesisSchema,
     ProcessVideoRequest,
     ProcessVideoResponse,
     SynthesizeVideoResponse,
@@ -30,6 +32,73 @@ from app.features.video_curator.tools.youtube_tool import (
     TranscriptResult,
     fetch_youtube_transcript,
 )
+
+
+def clean_and_parse_synthesis_json(response_text: str, default_video_id: str) -> dict:
+    """Parses Gemini synthesis response using multi-tier defensive strategy:
+    Tier 1: Strips markdown code blocks and runs json.loads with strict=False.
+    Tier 2: Smart regex fallback recovery for unescaped quotes or truncated JSON.
+    """
+    cleaned = response_text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:].strip()
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:].strip()
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3].strip()
+
+    # Tier 1: Relaxed JSON decoding
+    try:
+        parsed = json.loads(cleaned, strict=False)
+        if isinstance(parsed, dict) and "markdown_content" in parsed:
+            category = str(parsed.get("category", "General")).strip() or "General"
+            video_title = (
+                str(parsed.get("video_title", f"Video {default_video_id}")).strip()
+                or f"Video {default_video_id}"
+            )
+            markdown_content = str(parsed.get("markdown_content", "")).strip()
+            index_summary = str(parsed.get("index_summary", "")).strip() or None
+            tags = [str(t).strip().lower() for t in parsed.get("tags", []) if str(t).strip()]
+            return {
+                "category": category,
+                "video_title": video_title,
+                "index_summary": index_summary,
+                "tags": tags,
+                "markdown_content": markdown_content,
+            }
+    except Exception:
+        pass
+
+    # Tier 2: Smart Regex Fallback Recovery
+    cat_m = re.search(r'"category"\s*:\s*"([^"]+)"', cleaned)
+    category = cat_m.group(1).strip() if cat_m else "General"
+
+    title_m = re.search(r'"video_title"\s*:\s*"([^"]+)"', cleaned)
+    video_title = title_m.group(1).strip() if title_m else f"Video {default_video_id}"
+
+    sum_m = re.search(r'"index_summary"\s*:\s*"([^"]+)"', cleaned)
+    index_summary = sum_m.group(1).strip() if sum_m else None
+
+    tags_m = re.search(r'"tags"\s*:\s*\[(.*?)\]', cleaned, re.DOTALL)
+    tags = []
+    if tags_m:
+        tags = [t.strip().strip("'\"").lower() for t in tags_m.group(1).split(",") if t.strip()]
+
+    md_m = re.search(r'"markdown_content"\s*:\s*"(.*)', cleaned, re.DOTALL)
+    if md_m:
+        raw_md = md_m.group(1)
+        raw_md = re.sub(r'"\s*}\s*$', "", raw_md)
+        markdown_content = raw_md.replace('\\"', '"').replace('\\n', '\n').strip()
+        if markdown_content:
+            return {
+                "category": category,
+                "video_title": video_title,
+                "index_summary": index_summary,
+                "tags": tags,
+                "markdown_content": markdown_content,
+            }
+
+    raise ValueError("Respons model tidak dapat diurai menjadi dokumen catatan yang valid.")
 
 
 def synthesize_video_note(
@@ -49,7 +118,7 @@ def synthesize_video_note(
         client_provider: Optional callable returning a Gemini client.
 
     Returns:
-        Dict containing 'category', 'video_title', and 'markdown_content'.
+        Dict containing 'category', 'video_title', 'index_summary', 'tags', and 'markdown_content'.
 
     Raises:
         LLMServiceError: If API call fails or JSON format is malformed.
@@ -78,37 +147,13 @@ def synthesize_video_note(
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                temperature=0.3,
+                response_schema=NoteSynthesisSchema,
+                temperature=0.2,
             ),
         )
 
         response_text = response.text or ""
-        parsed = json.loads(response_text)
-
-        if not isinstance(parsed, dict) or "markdown_content" not in parsed:
-            raise ValueError("Respons JSON model tidak memiliki atribut 'markdown_content'.")
-
-        category = str(parsed.get("category", "General")).strip() or "General"
-        video_title = (
-            str(parsed.get("video_title", f"Video {transcript_result.video_id}")).strip()
-            or f"Video {transcript_result.video_id}"
-        )
-        markdown_content = str(parsed.get("markdown_content", "")).strip()
-        index_summary = str(parsed.get("index_summary", "")).strip() or None
-        tags = [str(t).strip().lower() for t in parsed.get("tags", []) if str(t).strip()]
-
-        return {
-            "category": category,
-            "video_title": video_title,
-            "index_summary": index_summary,
-            "tags": tags,
-            "markdown_content": markdown_content,
-        }
-    except json.JSONDecodeError as exc:
-        raise LLMServiceError(
-            f"Gagal mengurai respons JSON dari model AI: {str(exc)}",
-            details={"raw_response": response_text if "response_text" in locals() else None},
-        ) from exc
+        return clean_and_parse_synthesis_json(response_text, transcript_result.video_id)
     except Exception as exc:
         if isinstance(exc, LLMServiceError):
             raise

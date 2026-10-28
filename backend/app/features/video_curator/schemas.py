@@ -183,6 +183,41 @@ class UpdateVaultSettingsRequest(BaseModel):
 
 
 # Focus Studio Schemas (my_focus.md Grounding)
+class NoteSynthesisSchema(BaseModel):
+    """Schema for Gemini Structured Output constrained decoding in video note synthesis."""
+
+    category: str = Field(description="Format Domain/Subdomain misal: 'Backend/FastAPI'")
+    video_title: str = Field(description="Judul Catatan yang Informatif dan Bersih")
+    index_summary: str = Field(
+        description="1-2 kalimat padat konseptual yang merangkum inti materi untuk katalog vault"
+    )
+    tags: list[str] = Field(
+        default_factory=list, description="Daftar tag topik relevan huruf kecil"
+    )
+    markdown_content: str = Field(
+        description="Isi lengkap dokumen markdown termasuk YAML frontmatter"
+    )
+
+
+class VideoQASchema(BaseModel):
+    """Schema for Gemini Structured Output in Ask & Jump Q&A."""
+
+    answer: str = Field(description="Jawaban to-the-point dalam Bahasa Indonesia")
+    timestamp_reference: Optional[str] = Field(
+        default=None,
+        description="Penanda menit:detik misal '02:15' atau null jika tidak spesifik",
+    )
+
+
+class VaultRouterSchema(BaseModel):
+    """Schema for Gemini Structured Output in Stage 1 Router RAG."""
+
+    selected_files: list[str] = Field(
+        default_factory=list,
+        description="Maksimal 3 berkas catatan yang paling relevan dari katalog vault",
+    )
+
+
 class FocusTargetConfig(BaseModel):
     """Configuration payload for my_focus.md."""
 

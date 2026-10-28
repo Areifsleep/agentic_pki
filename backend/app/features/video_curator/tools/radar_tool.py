@@ -92,8 +92,8 @@ def _parse_video_renderer(v: dict) -> Optional[CandidateVideo]:
 
     dur_mins = parse_duration_to_minutes(dur_str)
 
-    # Heuristic filter: Reject Shorts (<2m) and massive marathons (>240m / 4 hours)
-    if dur_mins < 2.0 or dur_mins > 240.0:
+    # Heuristic filter: Reject Shorts (<3m) and massive marathons (>240m / 4 hours)
+    if dur_mins < 3.0 or dur_mins > 240.0:
         return None
 
     # Channel

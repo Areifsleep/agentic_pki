@@ -20,6 +20,9 @@ from app.features.video_curator.service import (
     store_cached_transcript,
     synthesize_video_note,
 )
+from app.features.video_curator.services.synthesis_service import (
+    clean_and_parse_synthesis_json,
+)
 from app.features.video_curator.tools.youtube_tool import (
     TranscriptResult,
     TranscriptSnippet,
@@ -129,6 +132,38 @@ class TestGeminiSynthesis:
         assert res["category"] == "Python Architecture"
         assert res["video_title"] == "Async IO in FastAPI"
         assert "# Notes here" in res["markdown_content"]
+
+    def test_clean_and_parse_synthesis_json_with_code_fences_and_unescaped_newlines(self):
+        # Raw response with ```json code fence and unescaped control newlines in string
+        raw_text = """```json
+{
+  "category": "Backend/FastAPI",
+  "video_title": "FastAPI Crash Course",
+  "index_summary": "Panduan cepat FastAPI dan async IO.",
+  "tags": ["fastapi", "python"],
+  "markdown_content": "# FastAPI Crash Course
+Line 1 content
+Line 2 with unescaped newline"
+}
+```"""
+        parsed = clean_and_parse_synthesis_json(raw_text, "test1234567")
+        assert parsed["category"] == "Backend/FastAPI"
+        assert parsed["video_title"] == "FastAPI Crash Course"
+        assert "Line 1 content" in parsed["markdown_content"]
+        assert "fastapi" in parsed["tags"]
+
+    def test_clean_and_parse_synthesis_json_regex_recovery_on_truncated_json(self):
+        # Truncated response before closing bracket
+        truncated_raw = """{
+  "category": "DevOps/Docker",
+  "video_title": "Docker in Production",
+  "index_summary": "Rangkuman setup container docker.",
+  "tags": ["docker"],
+  "markdown_content": "# Docker in Production\\n- Step 1: Write Dockerfile\\n- Step 2: Build"""
+        parsed = clean_and_parse_synthesis_json(truncated_raw, "test1234567")
+        assert parsed["category"] == "DevOps/Docker"
+        assert parsed["video_title"] == "Docker in Production"
+        assert "Dockerfile" in parsed["markdown_content"]
 
     def test_synthesize_invalid_json_raises_llm_error(self):
         dummy_tr = create_dummy_transcript()
