@@ -10,9 +10,17 @@ metadata for Batch Micro-Triage.
 from dataclasses import dataclass, field
 import json
 import re
+import ssl
 from typing import List, Optional, Tuple, Union
 import urllib.parse
 import urllib.request
+
+try:
+    import certifi
+
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    SSL_CONTEXT = None
 
 
 @dataclass
@@ -185,7 +193,7 @@ def search_candidate_videos_with_continuation(
 
     try:
         req = urllib.request.Request(url, headers=DEFAULT_HEADERS)
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_seconds, context=SSL_CONTEXT) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
     except Exception:
         return RadarSearchResult()
@@ -292,7 +300,7 @@ def fetch_continuation_candidates(
     try:
         data_bytes = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(endpoint, data=data_bytes, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_seconds, context=SSL_CONTEXT) as resp:
             resp_json = json.loads(resp.read().decode("utf-8", errors="ignore"))
     except Exception:
         return RadarSearchResult()

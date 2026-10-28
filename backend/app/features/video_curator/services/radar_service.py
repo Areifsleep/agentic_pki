@@ -10,7 +10,7 @@ Orchestrates Scrape Wide & Triage Narrow architecture:
 from dataclasses import dataclass, field
 import json
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 from google import genai
 from google.genai import types
