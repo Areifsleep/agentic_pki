@@ -6,6 +6,7 @@ markdown files as Single Source of Truth.
 
 from datetime import datetime
 import json
+import re
 from pathlib import Path
 from typing import Optional
 from google import genai
@@ -39,15 +40,39 @@ def list_vault_notes(vault_path: Optional[str] = None) -> list[VaultNoteItem]:
     if not base_dir.exists() or not base_dir.is_dir():
         return []
 
+    index_items = get_vault_index(base_dir)
+    index_by_file = {it.get("file_path"): it for it in index_items if it.get("file_path")}
+
     notes: list[VaultNoteItem] = []
     for md_file in base_dir.rglob("*.md"):
-        if not md_file.is_file() or md_file.name.startswith("."):
+        if not md_file.is_file() or md_file.name.startswith((".", "_")):
             continue
         try:
             relative_parent = md_file.parent.relative_to(base_dir)
             category = str(relative_parent) if str(relative_parent) != "." else "General"
             title = md_file.stem.replace("-", " ").capitalize()
             mtime = datetime.fromtimestamp(md_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            
+            rel_file = f"{category}/{md_file.name}" if category != "General" else md_file.name
+            idx_entry = index_by_file.get(rel_file) or index_by_file.get(f"{category}/{md_file.name}") or {}
+            
+            vid = idx_entry.get("video_id")
+            quiz_p = idx_entry.get("quiz_path")
+
+            if not vid:
+                try:
+                    head = md_file.read_text(encoding="utf-8", errors="ignore")[:1200]
+                    m = re.search(r"(?:v=|youtu\.be/|shorts/|source:\s*https?://.*?watch\?v=)([a-zA-Z0-9_-]{11})", head)
+                    if m:
+                        vid = m.group(1)
+                except Exception:
+                    pass
+
+            if not quiz_p and vid:
+                cand_quiz = base_dir / "_quizzes" / f"{vid}.json"
+                if cand_quiz.exists():
+                    quiz_p = f"_quizzes/{vid}.json"
+
             notes.append(
                 VaultNoteItem(
                     file_name=md_file.name,
@@ -55,6 +80,8 @@ def list_vault_notes(vault_path: Optional[str] = None) -> list[VaultNoteItem]:
                     title=title,
                     file_path=str(md_file),
                     modified_at=mtime,
+                    quiz_path=quiz_p,
+                    video_id=vid,
                 )
             )
         except Exception:
