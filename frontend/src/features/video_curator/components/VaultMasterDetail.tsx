@@ -17,20 +17,32 @@ import {
   FileText,
   Tag,
   FolderCog,
+  BrainCircuit,
+  Play,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CodeBlock } from './CodeBlock'
+import { ActiveRecallStudio } from './ActiveRecallStudio'
 import { api } from '@/lib/api'
+import { extractVideoId } from '@/lib/utils'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useVaultChatMutation } from '../hooks/useVideoCuratorMutations'
-import type { VaultNoteItem, VaultNotesResponse } from '../types'
+import type { VaultNoteItem, VaultNotesResponse, VideoQuizResponse } from '../types'
 
 export function VaultMasterDetail() {
-  const { vaultChatHistory, setIsVaultSettingsOpen } = useVideoCuratorStore()
+  const {
+    vaultChatHistory,
+    setIsVaultSettingsOpen,
+    setActiveQuiz,
+    resetQuizAnswers,
+    seekToTimestamp,
+    setVideoUrl,
+  } = useVideoCuratorStore()
   const vaultChatMutation = useVaultChatMutation()
 
-  const [activeSubTab, setActiveSubTab] = useState<'reader' | 'chat'>('reader')
+  const [activeSubTab, setActiveSubTab] = useState<'reader' | 'quiz' | 'chat'>('reader')
   const [selectedNote, setSelectedNote] = useState<VaultNoteItem | null>(null)
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null)
   const [noteContent, setNoteContent] = useState<string>('')
   const [isLoadingContent, setIsLoadingContent] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -69,7 +81,7 @@ export function VaultMasterDetail() {
     })
   }, [notes, searchQuery, selectedTag])
 
-  // Select note and load content
+  // Select note and load content + quiz
   const handleSelectNote = async (note: VaultNoteItem) => {
     setSelectedNote(note)
     setActiveSubTab('reader')
@@ -82,7 +94,41 @@ export function VaultMasterDetail() {
         file_path: string
       }>(`/api/v1/vault/note?path=${encodeURIComponent(note.file_path)}`)
       if (res.data?.success) {
-        setNoteContent(res.data.content)
+        const rawContent = res.data.content
+        setNoteContent(rawContent)
+
+        // Resolve YouTube video ID
+        let vId = note.video_id
+        if (!vId) {
+          const match = rawContent.match(/(?:source|url):\s*['"]?([^\r\n'"]+)/i)
+          if (match) {
+            vId = extractVideoId(match[1]) || undefined
+          }
+          if (!vId) {
+            vId = extractVideoId(rawContent) || undefined
+          }
+        }
+
+        setSelectedVideoId(vId || null)
+
+        if (vId) {
+          setVideoUrl(`https://www.youtube.com/watch?v=${vId}`)
+          try {
+            const quizRes = await api.get<VideoQuizResponse>(
+              `/api/v1/vault/quiz?video_id=${vId}`
+            )
+            if (quizRes.data?.success && quizRes.data.questions?.length > 0) {
+              setActiveQuiz(quizRes.data)
+              resetQuizAnswers()
+            } else {
+              setActiveQuiz(null)
+            }
+          } catch {
+            setActiveQuiz(null)
+          }
+        } else {
+          setActiveQuiz(null)
+        }
       }
     } catch {
       toast.error('Gagal membaca isi berkas catatan.')
@@ -91,11 +137,28 @@ export function VaultMasterDetail() {
     }
   }
 
-  // Parse YAML Frontmatter & clean body for reader
+  const refreshCurrentNote = async () => {
+    if (!selectedNote) return
+    try {
+      const res = await api.get<{
+        success: boolean
+        title: string
+        content: string
+        file_path: string
+      }>(`/api/v1/vault/note?path=${encodeURIComponent(selectedNote.file_path)}`)
+      if (res.data?.success) {
+        setNoteContent(res.data.content)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Parse YAML Frontmatter & linkify timestamps for reader
   const { frontmatter, cleanMarkdown } = useMemo(() => {
     if (!noteContent) return { frontmatter: null, cleanMarkdown: '' }
     let body = noteContent
-    let fmData: Record<string, string> = {}
+    const fmData: Record<string, string> = {}
     const fmMatch = noteContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/)
     if (fmMatch) {
       body = noteContent.slice(fmMatch[0].length).trim()
@@ -108,7 +171,13 @@ export function VaultMasterDetail() {
         }
       })
     }
-    return { frontmatter: fmData, cleanMarkdown: body }
+
+    const linkifiedBody = body.replace(
+      /(?<!\[▶\s*)\[(\d{1,2}:\d{2}(?::\d{2})?)\](?!\(#jump-)/g,
+      '[▶ $1](#jump-$1)'
+    )
+
+    return { frontmatter: fmData, cleanMarkdown: linkifiedBody }
   }, [noteContent])
 
   const handleCopyMarkdown = async () => {
@@ -255,20 +324,35 @@ export function VaultMasterDetail() {
                   >
                     {note.title}
                   </h4>
-                  <div
-                    className={`flex items-center gap-2 text-[10px] font-mono ${
-                      isSelected ? 'text-[#a1a1aa]' : 'text-[#71717a]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      <Folder className="w-2.5 h-2.5" />
-                      {note.category}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-2.5 h-2.5" />
-                      {note.modified_at}
-                    </span>
+                  <div className="flex items-center justify-between gap-1 mt-1">
+                    <div
+                      className={`flex items-center gap-2 text-[10px] font-mono ${
+                        isSelected ? 'text-[#a1a1aa]' : 'text-[#71717a]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1">
+                        <Folder className="w-2.5 h-2.5" />
+                        {note.category}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" />
+                        {note.modified_at}
+                      </span>
+                    </div>
+                    {note.quiz_path && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full font-medium ${
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                        title="Kuis & Flashcards tersimpan"
+                      >
+                        <BrainCircuit className="w-2.5 h-2.5" />
+                        <span>Kuis</span>
+                      </span>
+                    )}
                   </div>
                 </button>
               )
@@ -292,6 +376,20 @@ export function VaultMasterDetail() {
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Baca Catatan</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('quiz')}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeSubTab === 'quiz'
+                  ? 'bg-white text-[#17171c] shadow-xs'
+                  : 'text-[#71717a] hover:text-[#18181b]'
+              }`}
+            >
+              <BrainCircuit className="w-3.5 h-3.5" />
+              <span>Active Recall & Kuis</span>
+              {selectedNote?.quiz_path && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              )}
             </button>
             <button
               onClick={() => setActiveSubTab('chat')}
@@ -327,7 +425,7 @@ export function VaultMasterDetail() {
           )}
         </div>
 
-        {/* Sub-Tab 1: Direct Note Reader */}
+        {/* Sub-Tab 1: Direct Note Reader with Clickable Jump Timestamps */}
         {activeSubTab === 'reader' && (
           <div className="flex-1 overflow-y-auto p-8 lg:p-12">
             {isLoadingContent ? (
@@ -366,12 +464,33 @@ export function VaultMasterDetail() {
                   </h1>
                 </header>
 
-                {/* Markdown content */}
+                {/* Markdown content with interactive seek buttons */}
                 <article className="prose prose-slate max-w-none text-[#212121] leading-relaxed prose-headings:font-normal prose-headings:tracking-tight prose-headings:text-[#17171c] prose-h2:text-2xl prose-h3:text-lg prose-pre:p-0 prose-pre:bg-transparent prose-blockquote:border-l-2 prose-blockquote:border-[#17171c]">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
                       code: CodeBlock,
+                      a: ({ href, children, ...props }) => {
+                        if (href?.startsWith('#jump-')) {
+                          const ts = href.replace('#jump-', '')
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => seekToTimestamp(ts)}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-[#edfce9] text-[#003c33] text-xs font-mono font-medium hover:bg-[#d8f9d0] transition-colors border border-[#b2e5aa] cursor-pointer align-baseline shadow-2xs group/btn"
+                              title={`Putar video tepat di ${ts}`}
+                            >
+                              <Play className="w-2.5 h-2.5 fill-current group-hover/btn:scale-110 transition-transform" />
+                              <span>{ts}</span>
+                            </button>
+                          )
+                        }
+                        return (
+                          <a href={href} target="_blank" rel="noreferrer" {...props}>
+                            {children}
+                          </a>
+                        )
+                      },
                     }}
                   >
                     {cleanMarkdown}
@@ -382,7 +501,59 @@ export function VaultMasterDetail() {
           </div>
         )}
 
-        {/* Sub-Tab 2: Vault-Wide Grounded Chat (2-Stage Router RAG) */}
+        {/* Sub-Tab 2: Active Recall Quiz & Flashcards for Vault Notes */}
+        {activeSubTab === 'quiz' && (
+          <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+            {!selectedNote ? (
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-white border border-[#e4e4e7] flex items-center justify-center shadow-xs">
+                  <BrainCircuit className="w-6 h-6 text-[#17171c]" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-medium text-[#18181b]">
+                    Pilih Catatan untuk Membuka Kuis
+                  </h3>
+                  <p className="text-xs text-[#71717a] max-w-sm">
+                    Pilih salah satu catatan dari panel di sebelah kiri untuk mengulang kuis atau flashcards.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-4xl mx-auto space-y-5">
+                <div className="bg-white border border-[#e4e4e7] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717a]">
+                      Sesi Belajar Aktif Vault
+                    </span>
+                    <h2 className="text-sm sm:text-base font-semibold text-[#17171c]">
+                      {selectedNote.title || frontmatter?.title}
+                    </h2>
+                  </div>
+                  {selectedNote.quiz_path ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Tersimpan di Vault</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono text-[#71717a] bg-[#f4f4f5] self-start sm:self-auto">
+                      <span>Belum ada kuis tersimpan</span>
+                    </span>
+                  )}
+                </div>
+
+                <ActiveRecallStudio
+                  videoId={selectedVideoId}
+                  markdownContent={noteContent}
+                  filePath={selectedNote.file_path}
+                  isVaultHistory={true}
+                  onQuizSaved={refreshCurrentNote}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sub-Tab 3: Vault-Wide Grounded Chat (2-Stage Router RAG) */}
         {activeSubTab === 'chat' && (
           <div className="flex-1 flex flex-col h-full overflow-hidden p-8 max-w-4xl w-full mx-auto justify-between">
             {/* Chat Messages List */}

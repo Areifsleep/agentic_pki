@@ -17,11 +17,13 @@ from app.features.video_curator.schemas import (
     VaultChatResponse,
     VaultNoteItem,
     VideoQAResponse,
+    VideoQuizResponse,
 )
 import app.features.video_curator.services.focus_service as _focus_impl
 import app.features.video_curator.services.llm_client as _llm_client_mod
 import app.features.video_curator.services.prompts as _prompts_impl
 import app.features.video_curator.services.qa_service as _qa_impl
+import app.features.video_curator.services.quiz_service as _quiz_impl
 import app.features.video_curator.services.radar_service as _radar_impl
 import app.features.video_curator.services.synthesis_service as _synthesis_impl
 import app.features.video_curator.services.transcript_service as _transcript_impl
@@ -66,6 +68,7 @@ build_radar_triage_prompt = _prompts_impl.build_radar_triage_prompt
 build_vault_router_prompt = _prompts_impl.build_vault_router_prompt
 build_vault_synthesis_prompt = _prompts_impl.build_vault_synthesis_prompt
 build_focus_variations_prompt = _prompts_impl.build_focus_variations_prompt
+build_quiz_prompt = _prompts_impl.build_quiz_prompt
 
 # Focus
 generate_topic_query_variations = _focus_impl.generate_topic_query_variations
@@ -166,6 +169,24 @@ def answer_vault_chat(
     )
 
 
+def generate_active_recall_quiz(
+    video_id: str,
+    markdown_content: Optional[str] = None,
+    num_questions: int = 4,
+    client: Optional[genai.Client] = None,
+    fetch_transcript_fn: Optional[Any] = None,
+) -> VideoQuizResponse:
+    import app.features.video_curator.service as this_mod
+    actual_client = client or this_mod.get_genai_client()
+    return _quiz_impl.generate_active_recall_quiz(
+        video_id=video_id,
+        markdown_content=markdown_content,
+        num_questions=num_questions,
+        client=actual_client,
+        fetch_transcript_fn=fetch_transcript_fn or this_mod.fetch_youtube_transcript,
+    )
+
+
 __all__ = [
     # GenAI Client
     "get_genai_client",
@@ -176,6 +197,7 @@ __all__ = [
     "build_vault_router_prompt",
     "build_vault_synthesis_prompt",
     "build_focus_variations_prompt",
+    "build_quiz_prompt",
     # Transcript Store
     "_TRANSCRIPT_CACHE",
     "get_cached_transcript",
@@ -187,6 +209,7 @@ __all__ = [
     "synthesize_video_pipeline",
     # Q&A
     "answer_video_question",
+    "generate_active_recall_quiz",
     # Vault RAG
     "list_vault_notes",
     "answer_vault_chat",

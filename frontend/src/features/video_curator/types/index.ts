@@ -51,6 +51,7 @@ export interface SaveVaultRequest {
   transcript_text?: string
   index_summary?: string
   tags?: string[]
+  quiz_data?: VideoQuizResponse
 }
 
 export interface SaveVaultResponse {
@@ -68,6 +69,8 @@ export interface VaultNoteItem {
   title: string
   file_path: string
   modified_at: string
+  quiz_path?: string
+  video_id?: string
 }
 
 export interface VaultNotesResponse {
@@ -196,3 +199,42 @@ export const videoFormSchema = z.object({
 })
 
 export type VideoFormValues = z.infer<typeof videoFormSchema>
+
+// Active Recall Quiz & Flashcard Types
+export interface QuizQuestionItem {
+  id: string
+  question: string
+  options: string[]
+  correct_answer_index: number
+  explanation: string
+  timestamp_reference?: string | null
+  flashcard_front: string
+  flashcard_back: string
+}
+
+export interface VideoQuizRequest {
+  video_id: string
+  markdown_content?: string
+  num_questions?: number
+}
+
+export interface VideoQuizResponse {
+  success: boolean
+  video_id: string
+  total_questions: number
+  questions: QuizQuestionItem[]
+}
+
+export interface SaveQuizRequest {
+  video_id: string
+  quiz_data: VideoQuizResponse
+  file_path?: string
+}
+
+export interface SaveQuizResponse {
+  success: boolean
+  video_id: string
+  quiz_path?: string
+  file_path?: string
+  message: string
+}

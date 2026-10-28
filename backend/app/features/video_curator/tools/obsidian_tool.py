@@ -116,6 +116,210 @@ def save_raw_transcript(
         return None
 
 
+def format_quiz_as_obsidian_markdown(quiz_data: Any) -> str:
+    """Formats quiz questions and flashcards as native Obsidian Callout Markdown."""
+    if not quiz_data:
+        return ""
+
+    questions = []
+    if isinstance(quiz_data, dict):
+        questions = quiz_data.get("questions", [])
+    elif isinstance(quiz_data, list):
+        questions = quiz_data
+    elif hasattr(quiz_data, "questions"):
+        questions = quiz_data.questions
+
+    if not questions:
+        return ""
+
+    lines = [
+        "\n\n---\n\n## 🧠 Active Recall & Self-Quiz\n\n",
+        "> [!tip] Cara Belajar Mandiri\n",
+        "> Coba jawab pertanyaan di bawah ini terlebih dahulu sebelum membuka blok rujukan `[!success]- Kunci Jawaban`.\n\n",
+    ]
+
+    for idx, q in enumerate(questions, 1):
+        if hasattr(q, "model_dump"):
+            q_dict = q.model_dump()
+        elif isinstance(q, dict):
+            q_dict = q
+        else:
+            q_dict = getattr(q, "__dict__", {})
+
+        q_text = str(q_dict.get("question", "")).strip()
+        options = q_dict.get("options", [])
+        correct_idx = q_dict.get("correct_answer_index", 0)
+        try:
+            correct_idx = int(correct_idx)
+        except Exception:
+            correct_idx = 0
+        explanation = str(q_dict.get("explanation", "")).strip()
+        ts = q_dict.get("timestamp_reference")
+        ts_badge = f" `[{ts}]`" if ts else ""
+
+        lines.append(f"> [!question] Soal {idx}: {q_text}{ts_badge}\n")
+        for opt_idx, opt in enumerate(options):
+            letter = chr(65 + opt_idx)
+            lines.append(f"> - **{letter})** {opt}\n")
+        lines.append(">\n")
+
+        correct_letter = chr(65 + correct_idx) if 0 <= correct_idx < len(options) else "A"
+        correct_text = options[correct_idx] if 0 <= correct_idx < len(options) else ""
+        lines.append("> > [!success]- Kunci Jawaban & Pembahasan\n")
+        lines.append(f"> > **Jawaban Benar:** **{correct_letter})** {correct_text}\n")
+        lines.append("> > \n")
+        lines.append(f"> > {explanation}\n")
+        if ts:
+            lines.append("> > \n")
+            lines.append(f"> > *Rujukan Menit Video:* `[{ts}]`\n")
+        lines.append("\n")
+
+    return "".join(lines)
+
+
+def save_quiz_data(
+    vault_path: Union[str, Path],
+    video_id: str,
+    quiz_data: Any,
+) -> Optional[str]:
+    """Saves structured quiz and flashcard data to hidden folder Vault/_quizzes/<video_id>.json.
+
+    Returns the relative path string, e.g. '_quizzes/kqtD5dpn9C8.json'.
+    """
+    if not video_id or not quiz_data:
+        return None
+
+    try:
+        base_vault = Path(vault_path).expanduser().resolve()
+        quizzes_dir = base_vault / "_quizzes"
+        quizzes_dir.mkdir(parents=True, exist_ok=True)
+
+        if hasattr(quiz_data, "model_dump"):
+            dump_data = quiz_data.model_dump()
+        elif isinstance(quiz_data, dict):
+            dump_data = quiz_data
+        else:
+            dump_data = {"video_id": video_id, "questions": quiz_data}
+
+        # Ensure video_id is set
+        dump_data["video_id"] = video_id
+        if "total_questions" not in dump_data:
+            dump_data["total_questions"] = len(dump_data.get("questions", []))
+        dump_data["success"] = True
+
+        quiz_file = quizzes_dir / f"{video_id}.json"
+        quiz_file.write_text(json.dumps(dump_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        return f"_quizzes/{video_id}.json"
+    except Exception:
+        return None
+
+
+def get_quiz_data(
+    vault_path: Union[str, Path],
+    video_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Retrieves structured quiz and flashcard data from Vault/_quizzes/<video_id>.json."""
+    if not video_id:
+        return None
+
+    try:
+        base_vault = Path(vault_path).expanduser().resolve()
+        quiz_file = base_vault / "_quizzes" / f"{video_id}.json"
+        if quiz_file.exists() and quiz_file.is_file():
+            return json.loads(quiz_file.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
+def append_or_update_quiz_in_vault(
+    vault_path: Union[str, Path],
+    video_id: str,
+    quiz_data: Any,
+    file_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Updates or appends quiz section in the existing markdown note and saves JSON sidecar.
+
+    Args:
+        vault_path: Root obsidian vault directory.
+        video_id: 11-char YouTube video ID.
+        quiz_data: Quiz question objects or dict.
+        file_path: Optional specific relative or absolute markdown note path.
+
+    Returns:
+        Dict with success status, quiz_path, and file_path.
+    """
+    base_vault = Path(vault_path).expanduser().resolve()
+
+    # 1. Save JSON sidecar
+    quiz_rel_path = save_quiz_data(base_vault, video_id, quiz_data)
+
+    # 2. Locate target markdown file
+    target_md: Optional[Path] = None
+    if file_path:
+        p = Path(file_path).expanduser().resolve()
+        if p.exists() and p.is_file():
+            target_md = p
+        else:
+            # Try relative to base_vault
+            rel_p = base_vault / file_path
+            if rel_p.exists() and rel_p.is_file():
+                target_md = rel_p
+
+    if not target_md:
+        # Search via vault_index
+        items = get_vault_index(base_vault)
+        for it in items:
+            if it.get("video_id") == video_id and it.get("file_path"):
+                cand = base_vault / it["file_path"]
+                if cand.exists() and cand.is_file():
+                    target_md = cand
+                    break
+
+    if not target_md:
+        # Search all md files for video_id in first 1500 chars
+        yt_regex = re.compile(re.escape(video_id))
+        for cand in base_vault.rglob("*.md"):
+            if cand.is_file() and not cand.name.startswith((".", "_")):
+                try:
+                    head = cand.read_text(encoding="utf-8", errors="ignore")[:1500]
+                    if yt_regex.search(head):
+                        target_md = cand
+                        break
+                except Exception:
+                    continue
+
+    # 3. If markdown file found, update callouts
+    if target_md and target_md.exists():
+        content = target_md.read_text(encoding="utf-8")
+        # Strip existing Active Recall section if present
+        clean_content = re.split(r"(?:(?:\r?\n)+---)?(?:\r?\n)+##\s*🧠\s*Active Recall & Self-Quiz", content)[0].strip()
+        quiz_md = format_quiz_as_obsidian_markdown(quiz_data)
+        updated_content = clean_content + quiz_md
+        target_md.write_text(updated_content, encoding="utf-8")
+
+        # Update index entry with quiz_path
+        try:
+            rel_path = str(target_md.relative_to(base_vault))
+            items = get_vault_index(base_vault)
+            for it in items:
+                if it.get("file_path") == rel_path or it.get("video_id") == video_id:
+                    it["quiz_path"] = quiz_rel_path
+                    it["modified_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    update_vault_index(base_vault, it)
+                    break
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "video_id": video_id,
+        "quiz_path": quiz_rel_path,
+        "file_path": str(target_md) if target_md else None,
+        "message": "Kuis Active Recall berhasil disimpan ke Obsidian Vault.",
+    }
+
+
 def resolve_unique_filepath(target_dir: Path, filename: str) -> Path:
     """Resolves path collisions by appending a timestamp suffix if the file exists.
 
@@ -158,6 +362,7 @@ def save_markdown_to_vault(
     transcript_text: Optional[str] = None,
     index_summary: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    quiz_data: Optional[Any] = None,
 ) -> ObsidianSaveResult:
     """Saves a markdown note physically to the user's local Obsidian Vault.
 
@@ -196,8 +401,14 @@ def save_markdown_to_vault(
 
         target_file = resolve_unique_filepath(target_dir, initial_name)
 
+        # Append Obsidian callouts if quiz_data provided and not already present
+        final_content = content
+        if quiz_data:
+            clean_content = re.split(r"(?:(?:\r?\n)+---)?(?:\r?\n)+##\s*🧠\s*Active Recall & Self-Quiz", final_content)[0].strip()
+            final_content = clean_content + format_quiz_as_obsidian_markdown(quiz_data)
+
         # Write markdown content physically (FR-12)
-        bytes_written = target_file.write_text(content, encoding="utf-8")
+        bytes_written = target_file.write_text(final_content, encoding="utf-8")
 
         # Save raw transcript separately to _transcripts/<video_id>.txt
         actual_video_id = video_id
@@ -221,6 +432,18 @@ def save_markdown_to_vault(
             possible_file = base_vault / "_transcripts" / f"{actual_video_id}.txt"
             if possible_file.exists():
                 transcript_rel_path = f"_transcripts/{actual_video_id}.txt"
+
+        quiz_rel_path = None
+        if actual_video_id and quiz_data:
+            quiz_rel_path = save_quiz_data(
+                vault_path=base_vault,
+                video_id=actual_video_id,
+                quiz_data=quiz_data,
+            )
+        elif actual_video_id:
+            possible_quiz = base_vault / "_quizzes" / f"{actual_video_id}.json"
+            if possible_quiz.exists():
+                quiz_rel_path = f"_quizzes/{actual_video_id}.json"
 
         # Update local catalog vault_index.json automatically
         try:
@@ -248,6 +471,7 @@ def save_markdown_to_vault(
                     "video_id": actual_video_id,
                     "file_path": relative_path,
                     "transcript_path": transcript_rel_path,
+                    "quiz_path": quiz_rel_path,
                     "title": title,
                     "category": clean_cat,
                     "tags": final_tags,

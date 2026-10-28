@@ -17,6 +17,8 @@ from app.features.video_curator.schemas import (
     RadarDiscoverResponse,
     SaveVaultRequest,
     SaveVaultResponse,
+    SaveQuizRequest,
+    SaveQuizResponse,
     SynthesizeVideoResponse,
     UpdateVaultSettingsRequest,
     VaultChatRequest,
@@ -25,10 +27,13 @@ from app.features.video_curator.schemas import (
     VaultSettingsResponse,
     VideoQARequest,
     VideoQAResponse,
+    VideoQuizRequest,
+    VideoQuizResponse,
 )
 from app.features.video_curator.service import (
     answer_vault_chat,
     answer_video_question,
+    generate_active_recall_quiz,
     generate_topic_query_variations,
     list_vault_notes,
     process_video_curation,
@@ -39,6 +44,8 @@ from app.features.video_curator.tools.obsidian_tool import (
     get_focus_targets,
     save_focus_targets,
     save_markdown_to_vault,
+    append_or_update_quiz_in_vault,
+    get_quiz_data,
 )
 
 router = APIRouter(prefix="/api/v1/video", tags=["Video Curator"])
@@ -95,6 +102,25 @@ async def video_qa(payload: VideoQARequest) -> VideoQAResponse:
         question=payload.question,
     )
 
+@router.post(
+    "/quiz",
+    response_model=VideoQuizResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Active Recall Quiz & Flashcards Generator",
+    description=(
+        "Menghasilkan kuis pilihan ganda konseptual dan flashcard interaktif "
+        "berdasarkan materi video aktif untuk memperkuat retensi belajar."
+    ),
+)
+async def video_quiz(payload: VideoQuizRequest) -> VideoQuizResponse:
+    """Endpoint untuk kuis active recall dan flashcard materi video."""
+    return generate_active_recall_quiz(
+        video_id=payload.video_id,
+        markdown_content=payload.markdown_content,
+        num_questions=payload.num_questions,
+    )
+
+
 
 @vault_router.post(
     "/save",
@@ -114,6 +140,7 @@ def save_vault_note(payload: SaveVaultRequest) -> SaveVaultResponse:
         transcript_text=payload.transcript_text,
         index_summary=payload.index_summary,
         tags=payload.tags,
+        quiz_data=payload.quiz_data,
     )
     return SaveVaultResponse(
         success=True,
@@ -123,6 +150,55 @@ def save_vault_note(payload: SaveVaultRequest) -> SaveVaultResponse:
         bytes_written=res.bytes_written,
         message="Catatan berhasil diarsipkan ke Obsidian Vault.",
     )
+
+@vault_router.post(
+    "/quiz/save",
+    response_model=SaveQuizResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Simpan Kuis Active Recall ke Obsidian Vault",
+    description="Menyimpan file JSON kuis dan menyematkan bagian kuis di file markdown yang ada di vault.",
+)
+def save_quiz_note(payload: SaveQuizRequest) -> SaveQuizResponse:
+    """Persistensi kuis Active Recall dan pembaruan catatan fisik di Obsidian."""
+    res = append_or_update_quiz_in_vault(
+        vault_path=settings.curator_vault_path,
+        video_id=payload.video_id,
+        quiz_data=payload.quiz_data,
+        file_path=payload.file_path,
+    )
+    return SaveQuizResponse(
+        success=True,
+        video_id=payload.video_id,
+        quiz_path=res.get("quiz_path"),
+        file_path=res.get("file_path"),
+        message=res.get("message", "Kuis Active Recall berhasil disimpan ke Obsidian Vault."),
+    )
+
+
+@vault_router.get(
+    "/quiz",
+    response_model=VideoQuizResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ambil Kuis Tersimpan dari Obsidian Vault",
+    description="Membaca data kuis dan flashcard dari _quizzes/<video_id>.json.",
+)
+def get_vault_quiz(
+    video_id: str = Query(..., description="11-char YouTube video ID"),
+) -> VideoQuizResponse:
+    """Membaca data kuis yang pernah diarsipkan di vault."""
+    quiz_dict = get_quiz_data(settings.curator_vault_path, video_id)
+    if not quiz_dict:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Kuis untuk video ID {video_id} tidak ditemukan di Obsidian Vault.",
+        )
+    return VideoQuizResponse(
+        success=True,
+        video_id=quiz_dict.get("video_id", video_id),
+        total_questions=quiz_dict.get("total_questions", len(quiz_dict.get("questions", []))),
+        questions=quiz_dict.get("questions", []),
+    )
+
 
 
 @vault_router.get(

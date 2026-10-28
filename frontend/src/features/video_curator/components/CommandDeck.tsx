@@ -15,6 +15,8 @@ import {
   X,
   MessageSquare,
   Sparkles,
+  Play,
+  Tv,
 } from 'lucide-react'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import {
@@ -22,6 +24,8 @@ import {
   useVideoQAMutation,
 } from '../hooks/useVideoCuratorMutations'
 import { videoFormSchema, type SummaryMode } from '../types'
+import { EmbeddedVideoCompanion } from './EmbeddedVideoCompanion'
+import { extractVideoId } from '@/lib/utils'
 
 export function CommandDeck() {
   const {
@@ -36,6 +40,10 @@ export function CommandDeck() {
     status,
     activeDraft,
     qaHistory,
+    isPlayerOpen,
+    togglePlayer,
+    seekToTimestamp,
+    isFloatingPlayer,
   } = useVideoCuratorStore()
 
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -46,13 +54,7 @@ export function CommandDeck() {
 
   const isSynthesizing = status === 'PROCESSING' || synthesizeMutation.isPending
 
-  // Extract YouTube ID if valid
-  const extractVideoId = (url: string): string | null => {
-    const match = url.match(
-      /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})|^[a-zA-Z0-9_-]{11}$/
-    )
-    return match ? match[1] : null
-  }
+  // Video ID resolved via shared utility
 
   const detectedVideoId = extractVideoId(videoUrl.trim())
 
@@ -139,9 +141,21 @@ export function CommandDeck() {
           <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
             Command Deck
           </span>
-          {/* <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#edfce9] text-[#003c33] font-medium border border-[#b2e5aa]">
-            Level 2 Agent
-          </span> */}
+          {(detectedVideoId || activeDraft?.video_id) && (
+            <button
+              type="button"
+              onClick={() => togglePlayer()}
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border flex items-center gap-1 transition-colors cursor-pointer ${
+                isPlayerOpen
+                  ? 'bg-[#17171c] text-white border-[#17171c]'
+                  : 'bg-[#f4f4f5] text-[#52525b] border-[#e4e4e7] hover:bg-[#eeece7]'
+              }`}
+              title={isPlayerOpen ? 'Sembunyikan Pemutar Video' : 'Tampilkan Pemutar Video'}
+            >
+              <Tv className="w-3 h-3" />
+              <span>{isPlayerOpen ? 'Player Aktif' : 'Player'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -180,6 +194,14 @@ export function CommandDeck() {
             <p className="text-[11px] text-rose-500 font-medium pl-1">{validationError}</p>
           )}
         </form>
+
+        {/* Docked Embedded Video Player */}
+        {!isFloatingPlayer && (
+          <EmbeddedVideoCompanion
+            videoId={activeDraft?.video_id || detectedVideoId}
+            mode="docked"
+          />
+        )}
 
         {/* Mini Video Preview Card */}
         {detectedVideoId && (
@@ -365,10 +387,15 @@ export function CommandDeck() {
                       </div>
                       {item.timestamp_reference && (
                         <div className="pt-0.5">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#edfce9] text-[#003c33] border border-[#b2e5aa]">
-                            <Clock className="w-2.5 h-2.5" />
-                            Jump: {item.timestamp_reference}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => seekToTimestamp(item.timestamp_reference!)}
+                            className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#edfce9] text-[#003c33] border border-[#b2e5aa] hover:bg-[#d8f9d0] transition-colors cursor-pointer group/jump"
+                            title="Lompat dan putar video tepat di detik ini"
+                          >
+                            <Play className="w-2.5 h-2.5 fill-current group-hover/jump:scale-110 transition-transform" />
+                            <span>Jump {item.timestamp_reference}</span>
+                          </button>
                         </div>
                       )}
                     </div>

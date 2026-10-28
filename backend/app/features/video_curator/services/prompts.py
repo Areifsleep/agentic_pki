@@ -277,3 +277,38 @@ Kembalikan HANYA format JSON:
   }}
 }}
 """
+
+
+def build_quiz_prompt(content_or_transcript: str, num_questions: int = 4) -> str:
+    """Assembles prompt for active recall quiz and flashcard generation."""
+    return f"""Anda adalah Mentor Belajar Kognitif & Asisten Active Recall (Second Brain Learning Companion).
+Berdasarkan materi pembelajaran berikut, buatkan {num_questions} pertanyaan kuis Active Recall dan Flashcard konseptual berkualitas tinggi untuk menguji dan memperkuat pemahaman mendalam pengguna (bukan sekadar hafalan kata perkata).
+
+ATURAN PERTANYAAN:
+1. Uji konsep inti (mental models), arsitektur/prinsip kerja, atau jebakan umum (pitfalls) yang fundamental.
+2. Buat 4 opsi pilihan ganda yang realistis di mana hanya 1 yang tepat secara konseptual.
+3. correct_answer_index WAJIB bernilai integer 0, 1, 2, atau 3 sesuai letak jawaban benar pada array options.
+4. Berikan explanation yang mendidik: jelaskan alasan konsep di balik jawaban yang benar.
+5. Cantumkan timestamp_reference (format 'MM:SS') perkiraan letak konsep tersebut dibahas di video jika tersedia (atau null jika tidak ada penanda waktu).
+6. Sertakan versi flashcard_front (tantangan/pertanyaan konsep) dan flashcard_back (jawaban padat + prinsip inti).
+
+FORMAT OUTPUT WAJIB:
+Kembalikan HANYA array JSON valid (tanpa markdown backtick):
+[
+  {{
+    "id": "q1",
+    "question": "<Pertanyaan konseptual>",
+    "options": ["<Opsi A>", "<Opsi B>", "<Opsi C>", "<Opsi D>"],
+    "correct_answer_index": 0,
+    "explanation": "<Penjelasan konseptual dan alasan jawaban benar>",
+    "timestamp_reference": "02:15",
+    "flashcard_front": "<Tantangan konsep kartu depan>",
+    "flashcard_back": "<Jawaban padat kartu belakang>"
+  }}
+]
+
+MATERI PEMBELAJARAN:
+---
+{content_or_transcript}
+---
+"""

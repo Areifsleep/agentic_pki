@@ -12,7 +12,9 @@ import type {
   SynthesizeVideoResponse,
   VaultChatItem,
   VaultSettings,
+  VideoQuizResponse,
 } from '../types'
+import { parseTimestampToSeconds } from '@/lib/utils'
 
 export interface ActiveNoteView {
   title: string
@@ -44,6 +46,22 @@ interface VideoCuratorState {
   setIsVaultSettingsOpen: (open: boolean) => void
   vaultSettings: VaultSettings | null
   setVaultSettings: (settings: VaultSettings | null) => void
+
+  // Embedded Video Player State ("True Ask & Jump")
+  isPlayerOpen: boolean
+  isFloatingPlayer: boolean
+  playerSeekSeconds: number | null
+  playerActionCounter: number
+  seekToTimestamp: (timestamp: string | number) => void
+  togglePlayer: (open?: boolean) => void
+  setIsFloatingPlayer: (floating: boolean) => void
+
+  // Active Recall Quiz & Flashcards State
+  activeQuiz: VideoQuizResponse | null
+  setActiveQuiz: (quiz: VideoQuizResponse | null) => void
+  quizAnswers: Record<string, number>
+  setQuizAnswer: (questionId: string, optionIndex: number) => void
+  resetQuizAnswers: () => void
 
   // Focus Studio State
   focusTargets: FocusTargetResponse | null
@@ -118,6 +136,37 @@ export const useVideoCuratorStore = create<VideoCuratorState>((set) => ({
   vaultSettings: null,
   setVaultSettings: (vaultSettings) => set({ vaultSettings }),
 
+  // Player defaults
+  isPlayerOpen: false,
+  isFloatingPlayer: false,
+  playerSeekSeconds: null,
+  playerActionCounter: 0,
+  seekToTimestamp: (timestamp) => {
+    const sec =
+      typeof timestamp === 'number'
+        ? timestamp
+        : parseTimestampToSeconds(timestamp)
+    set((state) => ({
+      isPlayerOpen: true,
+      isFloatingPlayer: state.activeStage !== 'curate' ? true : state.isFloatingPlayer,
+      playerSeekSeconds: sec,
+      playerActionCounter: state.playerActionCounter + 1,
+    }))
+  },
+  togglePlayer: (open) =>
+    set((state) => ({ isPlayerOpen: open ?? !state.isPlayerOpen })),
+  setIsFloatingPlayer: (isFloatingPlayer) => set({ isFloatingPlayer }),
+
+  // Quiz defaults
+  activeQuiz: null,
+  setActiveQuiz: (activeQuiz) => set({ activeQuiz }),
+  quizAnswers: {},
+  setQuizAnswer: (questionId, optionIndex) =>
+    set((state) => ({
+      quizAnswers: { ...state.quizAnswers, [questionId]: optionIndex },
+    })),
+  resetQuizAnswers: () => set({ quizAnswers: {} }),
+
   focusTargets: null,
   setFocusTargets: (focusTargets) => set({ focusTargets }),
 
@@ -187,6 +236,9 @@ export const useVideoCuratorStore = create<VideoCuratorState>((set) => ({
       errorMessage: null,
       qaHistory: [],
       activeStage: 'curate',
+      activeQuiz: null,
+      quizAnswers: {},
+      isPlayerOpen: false,
     }),
   curateVideoFromRadar: (videoId: string) =>
     set({
@@ -197,5 +249,8 @@ export const useVideoCuratorStore = create<VideoCuratorState>((set) => ({
       isSavedToVault: false,
       savedVaultInfo: null,
       status: 'IDLE',
+      activeQuiz: null,
+      quizAnswers: {},
+      isPlayerOpen: false,
     }),
 }))

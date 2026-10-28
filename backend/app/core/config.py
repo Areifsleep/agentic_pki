@@ -1,16 +1,29 @@
+import os
 import json
+import tempfile
 from pathlib import Path
 from typing import Optional, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-CONFIG_FILE = Path(__file__).resolve().parents[3] / ".curator_config.json"
+
+def get_config_file() -> Path:
+    """Returns the path to the curator configuration file.
+    When running under pytest, isolates to a temporary file so tests never overwrite user config.
+    """
+    if "PYTEST_CURRENT_TEST" in os.environ or "PYTEST_VERSION" in os.environ:
+        return Path(tempfile.gettempdir()) / ".curator_test_config.json"
+    return Path(__file__).resolve().parents[3] / ".curator_config.json"
+
+
+CONFIG_FILE = get_config_file()
 
 
 def _load_persisted_vault_config() -> tuple[Optional[Path], Optional[str]]:
     """Loads custom vault path persisted via UI if available."""
-    if CONFIG_FILE.exists() and CONFIG_FILE.is_file():
+    cfg = get_config_file()
+    if cfg.exists() and cfg.is_file():
         try:
-            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            data = json.loads(cfg.read_text(encoding="utf-8"))
             vault_p = data.get("vault_path")
             folder_name = data.get("curator_folder_name")
             p = Path(vault_p).expanduser().resolve() if vault_p else None
@@ -72,8 +85,9 @@ def update_vault_config(
         "vault_path": str(resolved_path),
         "curator_folder_name": settings.CURATOR_FOLDER_NAME,
     }
+    cfg = get_config_file()
     try:
-        CONFIG_FILE.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
+        cfg.write_text(json.dumps(config_data, indent=2), encoding="utf-8")
     except Exception:
         pass
 

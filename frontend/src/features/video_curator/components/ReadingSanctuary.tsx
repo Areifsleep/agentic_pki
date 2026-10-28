@@ -11,9 +11,13 @@ import {
   Sparkles,
   Loader2,
   Tag,
+  Play,
+  Tv,
+  BrainCircuit,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CodeBlock } from './CodeBlock'
+import { ActiveRecallStudio } from './ActiveRecallStudio'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useSaveVaultMutation } from '../hooks/useVideoCuratorMutations'
 
@@ -24,36 +28,40 @@ export function ReadingSanctuary() {
     isSavedToVault,
     savedVaultInfo,
     status,
+    isPlayerOpen,
+    togglePlayer,
+    seekToTimestamp,
+    activeQuiz,
   } = useVideoCuratorStore()
 
+  const [activeTab, setActiveTab] = useState<'reader' | 'quiz'>('reader')
   const [copied, setCopied] = useState(false)
   const [editedCategory, setEditedCategory] = useState<string>('')
   const [prevNoteId, setPrevNoteId] = useState<string>('')
   const saveVaultMutation = useSaveVaultMutation()
 
-  // Reset edited category state when active note changes (React render-phase pattern)
+  // Reset edited category state when active note changes
   const currentNoteId = activeNote ? `${activeNote.title}_${activeNote.category}` : ''
   if (currentNoteId !== prevNoteId) {
     setPrevNoteId(currentNoteId)
     setEditedCategory('')
   }
 
-  // Parse YAML Frontmatter and extract clean markdown body
-  const { frontmatter, cleanMarkdown, readingMinutes } = useMemo(() => {
+  // Parse YAML Frontmatter, extract clean markdown body, and linkify timestamps
+  const { frontmatter, interactiveMarkdown, readingMinutes } = useMemo(() => {
     if (!activeNote?.content) {
-      return { frontmatter: null, cleanMarkdown: '', readingMinutes: 1 }
+      return { frontmatter: null, interactiveMarkdown: '', readingMinutes: 1 }
     }
 
     const raw = activeNote.content
     let body = raw
     let fmData: Record<string, string> = {}
 
-    const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/)
+    const fmMatch = raw.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---\\r?\\n/)
     if (fmMatch) {
       const fmContent = fmMatch[1]
       body = raw.slice(fmMatch[0].length).trim()
 
-      // Simple key-value parser for basic YAML lines
       fmContent.split('\n').forEach((line) => {
         const colonIdx = line.indexOf(':')
         if (colonIdx !== -1) {
@@ -66,11 +74,18 @@ export function ReadingSanctuary() {
       })
     }
 
+    // Convert timestamps like [02:15] or [01:05:30] to internal jump anchors [▶ 02:15](#jump-02:15)
+    // Avoid double-replacing if already linkified
+    const linkifiedBody = body.replace(
+      /(?<!\[▶\s*)\[(\d{1,2}:\d{2}(?::\d{2})?)\](?!\(#jump-)/g,
+      '[▶ $1](#jump-$1)'
+    )
+
     // Estimate reading time (~200 words/min)
     const wordCount = body.split(/\s+/).filter(Boolean).length
     const minutes = Math.max(1, Math.ceil(wordCount / 200))
 
-    return { frontmatter: fmData, cleanMarkdown: body, readingMinutes: minutes }
+    return { frontmatter: fmData, interactiveMarkdown: linkifiedBody, readingMinutes: minutes }
   }, [activeNote?.content])
 
   // Sync category state with note
@@ -97,6 +112,7 @@ export function ReadingSanctuary() {
       video_id: activeDraft?.video_id,
       index_summary: activeDraft?.index_summary,
       tags: activeDraft?.tags,
+      quiz_data: activeQuiz || undefined,
     })
   }
 
@@ -132,156 +148,244 @@ export function ReadingSanctuary() {
   const finalFilePath = savedVaultInfo?.file_path || activeNote.file_path
 
   return (
-    <section className="flex-1 h-screen overflow-y-auto bg-[#ffffff] relative flex flex-col">
-      {/* Floating Action Tools (Hover FABs at top-right) */}
-      <div className="sticky top-4 right-6 z-20 flex justify-end px-8 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 bg-white/90 backdrop-blur-xs border border-[#e4e4e7] rounded-full p-1.5 shadow-sm">
+    <section className="flex-1 h-screen overflow-hidden bg-[#ffffff] relative flex flex-col">
+      {/* Top Sanctuary Navigation Bar */}
+      <div className="px-8 py-3 border-b border-[#f4f4f5] bg-white flex items-center justify-between shrink-0 z-20">
+        {/* Sub-tab Switcher: Reader vs Active Recall */}
+        <div className="flex items-center gap-1.5 bg-[#f4f4f5] p-1 rounded-xl border border-[#e4e4e7]">
           <button
+            type="button"
+            onClick={() => setActiveTab('reader')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'reader'
+                ? 'bg-white text-[#18181b] shadow-xs'
+                : 'text-[#71717a] hover:text-[#18181b]'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Ringkasan Catatan</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('quiz')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'quiz'
+                ? 'bg-white text-[#18181b] shadow-xs'
+                : 'text-[#71717a] hover:text-[#18181b]'
+            }`}
+          >
+            <BrainCircuit className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Active Recall & Quiz</span>
+            {activeQuiz && (
+              <span className="w-4 h-4 rounded-full bg-[#17171c] text-white text-[10px] font-mono flex items-center justify-center font-semibold">
+                {activeQuiz.total_questions}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Global Toolbar Actions */}
+        <div className="flex items-center gap-2">
+          {/* Video Player Toggle */}
+          <button
+            type="button"
+            onClick={() => togglePlayer()}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isPlayerOpen
+                ? 'bg-[#17171c] text-white border-[#17171c]'
+                : 'bg-white text-[#52525b] border-[#e4e4e7] hover:bg-[#f4f4f5]'
+            }`}
+            title={isPlayerOpen ? 'Sembunyikan Pemutar Video' : 'Tampilkan Pemutar Video'}
+          >
+            <Tv className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">
+              {isPlayerOpen ? 'Player Aktif' : 'Pemutar Video'}
+            </span>
+          </button>
+
+          {/* Copy Markdown */}
+          <button
+            type="button"
             onClick={handleCopy}
-            className="px-3 py-1.5 rounded-full text-xs font-medium text-[#52525b] hover:text-[#18181b] hover:bg-[#f4f4f5] transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 rounded-full text-xs font-medium text-[#52525b] hover:text-[#18181b] hover:bg-[#f4f4f5] border border-[#e4e4e7] transition-colors flex items-center gap-1.5 cursor-pointer"
             title="Salin Markdown Lengkap"
           >
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700">Tersalin</span>
+                <span className="text-emerald-700 hidden sm:inline">Tersalin</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>Salin Markdown</span>
+                <span className="hidden sm:inline">Salin</span>
               </>
             )}
           </button>
 
+          {/* Open in Obsidian */}
           {finalFilePath && (
             <button
+              type="button"
               onClick={() => handleOpenInObsidian(finalFilePath)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium text-[#18181b] bg-[#f4f4f5] hover:bg-[#eeece7] transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-[#18181b] bg-[#f4f4f5] hover:bg-[#eeece7] border border-[#e4e4e7] transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Buka Langsung di Obsidian"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Buka di Obsidian</span>
+              <span className="hidden sm:inline">Buka di Obsidian</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Document Reading Canvas */}
-      <div className="max-w-3xl w-full mx-auto px-8 pt-8 pb-24 space-y-7">
-        {/* Review-First Archiving Banner */}
-        <div className="border border-[#e4e4e7] rounded-2xl p-4 bg-[#f9f9fb] transition-all">
-          {!isSavedToVault && !activeNote.is_vault_file ? (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-xs font-medium text-[#17171c]">
-                    Mode Pratinjau (Review First)
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#71717a]">
-                  Periksa isi rangkuman. Ubah folder kategori jika perlu sebelum diarsipkan ke vault.
-                </p>
-              </div>
+      {/* Main Content Area */}
+      {activeTab === 'quiz' ? (
+        <div className="flex-1 overflow-hidden">
+          <ActiveRecallStudio />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {/* Main Document Reading Canvas */}
+          <div className="max-w-3xl w-full mx-auto px-8 pt-6 pb-24 space-y-7">
+            {/* Review-First Archiving Banner */}
+            <div className="border border-[#e4e4e7] rounded-2xl p-4 bg-[#f9f9fb] transition-all">
+              {!isSavedToVault && !activeNote.is_vault_file ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="text-xs font-medium text-[#17171c]">
+                        Mode Pratinjau (Review First)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#71717a]">
+                      Periksa isi rangkuman. Ubah folder kategori jika perlu sebelum diarsipkan ke vault.
+                    </p>
+                  </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-white border border-[#e4e4e7] rounded-xl px-2.5 py-1 text-xs">
-                  <span className="text-[#a1a1aa] text-[11px]">Folder:</span>
-                  <input
-                    type="text"
-                    value={currentCategory}
-                    onChange={(e) => setEditedCategory(e.target.value)}
-                    className="w-28 text-xs font-medium text-[#18181b] focus:outline-none"
-                    placeholder="Nama Folder"
-                  />
-                </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-white border border-[#e4e4e7] rounded-xl px-2.5 py-1 text-xs">
+                      <span className="text-[#a1a1aa] text-[11px]">Folder:</span>
+                      <input
+                        type="text"
+                        value={currentCategory}
+                        onChange={(e) => setEditedCategory(e.target.value)}
+                        className="w-28 text-xs font-medium text-[#18181b] focus:outline-none"
+                        placeholder="Nama Folder"
+                      />
+                    </div>
 
-                <button
-                  onClick={handleSaveToVault}
-                  disabled={saveVaultMutation.isPending}
-                  className="bg-[#17171c] hover:bg-black text-white text-xs font-medium py-2 px-4 rounded-full flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                >
-                  {saveVaultMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Menyimpan...</span>
-                    </>
-                  ) : (
-                    <>
-                      <FolderDown className="w-3.5 h-3.5" />
-                      <span>Simpan ke Vault</span>
-                    </>
+                    <button
+                      type="button"
+                      onClick={handleSaveToVault}
+                      disabled={saveVaultMutation.isPending}
+                      className="bg-[#17171c] hover:bg-black text-white text-xs font-medium py-2 px-4 rounded-full flex items-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      {saveVaultMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FolderDown className="w-3.5 h-3.5" />
+                          <span>Simpan ke Vault</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="font-medium text-[#003c33] shrink-0">
+                      Diarsipkan ke Obsidian Vault:
+                    </span>
+                    <span className="font-mono text-[#71717a] truncate text-[11px]">
+                      {finalFilePath || `${currentCategory}/${activeNote.title}.md`}
+                    </span>
+                  </div>
+                  {finalFilePath && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenInObsidian(finalFilePath)}
+                      className="text-[#1863dc] hover:underline font-medium shrink-0 flex items-center gap-1 text-[11px] cursor-pointer"
+                    >
+                      <span>Obsidian</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
                   )}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 truncate">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                <span className="font-medium text-[#003c33] shrink-0">
-                  Diarsipkan ke Obsidian Vault:
-                </span>
-                <span className="font-mono text-[#71717a] truncate text-[11px]">
-                  {finalFilePath || `${currentCategory}/${activeNote.title}.md`}
-                </span>
-              </div>
-              {finalFilePath && (
-                <button
-                  onClick={() => handleOpenInObsidian(finalFilePath)}
-                  className="text-[#1863dc] hover:underline font-medium shrink-0 flex items-center gap-1 text-[11px] cursor-pointer"
-                >
-                  <span>Obsidian</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Editorial Header */}
-        <header className="space-y-4 pt-2 border-b border-[#f4f4f5] pb-6">
-          {/* Metadata Row */}
-          <div className="flex flex-wrap items-center gap-2.5 text-xs text-[#71717a]">
-            <span className="inline-flex items-center gap-1 bg-[#eeece7] text-[#17171c] px-3 py-1 rounded-full text-xs font-medium font-mono">
-              <Tag className="w-3 h-3" />
-              {currentCategory}
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              ~{readingMinutes} Menit Baca
-            </span>
-            {activeNote.execution_time_seconds && (
-              <>
-                <span>•</span>
-                <span className="flex items-center gap-1 font-mono text-[11px]">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  {activeNote.execution_time_seconds}s sintesis
+            {/* Editorial Header */}
+            <header className="space-y-4 pt-2 border-b border-[#f4f4f5] pb-6">
+              {/* Metadata Row */}
+              <div className="flex flex-wrap items-center gap-2.5 text-xs text-[#71717a]">
+                <span className="inline-flex items-center gap-1 bg-[#eeece7] text-[#17171c] px-3 py-1 rounded-full text-xs font-medium font-mono">
+                  <Tag className="w-3 h-3" />
+                  {currentCategory}
                 </span>
-              </>
-            )}
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  ~{readingMinutes} Menit Baca
+                </span>
+                {activeNote.execution_time_seconds && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1 font-mono text-[11px]">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      {activeNote.execution_time_seconds}s sintesis
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Large Editorial Headline */}
+              <h1 className="text-3xl sm:text-4xl font-normal text-[#17171c] tracking-tight leading-snug">
+                {displayTitle}
+              </h1>
+            </header>
+
+            {/* Clean Typographic Reading Surface with Interactive Clickable Timestamps */}
+            <article className="prose prose-slate max-w-none text-[#212121] leading-relaxed prose-headings:font-normal prose-headings:tracking-tight prose-headings:text-[#17171c] prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3 prose-p:my-4 prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-[#17171c] prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-[#52525b] prose-pre:p-0 prose-pre:bg-transparent prose-table:border-collapse prose-th:border-b prose-th:border-[#e4e4e7] prose-th:py-2 prose-td:border-b prose-td:border-[#f4f4f5] prose-td:py-2">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code: CodeBlock,
+                  a: ({ href, children, ...props }) => {
+                    if (href?.startsWith('#jump-')) {
+                      const ts = href.replace('#jump-', '')
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => seekToTimestamp(ts)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-[#edfce9] text-[#003c33] text-xs font-mono font-medium hover:bg-[#d8f9d0] transition-colors border border-[#b2e5aa] cursor-pointer align-baseline shadow-2xs group/btn"
+                          title={`Putar video tepat di ${ts}`}
+                        >
+                          <Play className="w-2.5 h-2.5 fill-current group-hover/btn:scale-110 transition-transform" />
+                          <span>{ts}</span>
+                        </button>
+                      )
+                    }
+                    return (
+                      <a href={href} target="_blank" rel="noreferrer" {...props}>
+                        {children}
+                      </a>
+                    )
+                  },
+                }}
+              >
+                {interactiveMarkdown}
+              </ReactMarkdown>
+            </article>
           </div>
-
-          {/* Large Editorial Headline */}
-          <h1 className="text-3xl sm:text-4xl font-normal text-[#17171c] tracking-tight leading-snug">
-            {displayTitle}
-          </h1>
-        </header>
-
-        {/* Clean Typographic Reading Surface (Frontmatter Stripped) */}
-        <article className="prose prose-slate max-w-none text-[#212121] leading-relaxed prose-headings:font-normal prose-headings:tracking-tight prose-headings:text-[#17171c] prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4 prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3 prose-p:my-4 prose-p:leading-relaxed prose-blockquote:border-l-2 prose-blockquote:border-[#17171c] prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-[#52525b] prose-pre:p-0 prose-pre:bg-transparent prose-table:border-collapse prose-th:border-b prose-th:border-[#e4e4e7] prose-th:py-2 prose-td:border-b prose-td:border-[#f4f4f5] prose-td:py-2">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code: CodeBlock,
-            }}
-          >
-            {cleanMarkdown}
-          </ReactMarkdown>
-        </article>
-      </div>
+        </div>
+      )}
     </section>
   )
 }

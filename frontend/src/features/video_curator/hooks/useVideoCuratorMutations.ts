@@ -14,6 +14,10 @@ import type {
   VaultChatResponse,
   VideoQARequest,
   VideoQAResponse,
+  VideoQuizRequest,
+  VideoQuizResponse,
+  SaveQuizRequest,
+  SaveQuizResponse,
 } from '../types'
 import { useVideoCuratorStore } from './useVideoCuratorStore'
 
@@ -294,6 +298,48 @@ export function useVaultChatMutation() {
     },
     onError: (error: Error) => {
       toast.error('Gagal berdialog dengan vault', {
+        description: error.message,
+      })
+    },
+  })
+}
+
+// Active Recall Quiz & Flashcards Mutation
+export function useVideoQuizMutation() {
+  const { setActiveQuiz, resetQuizAnswers } = useVideoCuratorStore()
+
+  return useMutation({
+    mutationFn: async (payload: VideoQuizRequest) => {
+      const res = await api.post<VideoQuizResponse>('/api/v1/video/quiz', payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      setActiveQuiz(data)
+      resetQuizAnswers()
+      toast.success(`Kuis Active Recall & Flashcard berhasil disusun (${data.total_questions} konsep)!`)
+    },
+    onError: (error: Error) => {
+      toast.error('Gagal menghasilkan kuis Active Recall', {
+        description: error.message,
+      })
+    },
+  })
+}
+
+export function useSaveQuizMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: SaveQuizRequest) => {
+      const res = await api.post<SaveQuizResponse>('/api/v1/vault/quiz/save', payload)
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Kuis Active Recall berhasil disimpan ke Obsidian Vault!')
+      queryClient.invalidateQueries({ queryKey: ['vault-notes'] })
+    },
+    onError: (error: Error) => {
+      toast.error('Gagal menyimpan kuis ke Obsidian Vault', {
         description: error.message,
       })
     },

@@ -10,6 +10,7 @@ import { FocusStudio } from './features/video_curator/components/FocusStudio'
 import { RadarCatalog } from './features/video_curator/components/RadarCatalog'
 import { VaultMasterDetail } from './features/video_curator/components/VaultMasterDetail'
 import { VaultSettingsModal } from './features/video_curator/components/VaultSettingsModal'
+import { EmbeddedVideoCompanion } from './features/video_curator/components/EmbeddedVideoCompanion'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,7 +22,7 @@ const queryClient = new QueryClient({
 })
 
 function MainStage() {
-  const { setVaultPath, status, activeStage, isRadarLoading } =
+  const { setVaultPath, status, activeStage, isRadarLoading, isFloatingPlayer } =
     useVideoCuratorStore()
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null)
 
@@ -77,6 +78,9 @@ function MainStage() {
         {/* Stage 4: Riwayat Vault & Chat Multi-Catatan (Master-Detail) */}
         {activeStage === 'vault' && <VaultMasterDetail />}
       </div>
+
+      {/* Global Floating Video Companion */}
+      {isFloatingPlayer && <EmbeddedVideoCompanion mode="floating" />}
 
       {/* Global Obsidian Vault Settings Modal */}
       <VaultSettingsModal />

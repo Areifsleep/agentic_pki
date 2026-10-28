@@ -109,6 +109,7 @@ class SaveVaultRequest(BaseModel):
     transcript_text: Optional[str] = Field(default=None, description="Optional raw transcript text")
     index_summary: Optional[str] = Field(default=None, description="Optional structured index summary")
     tags: list[str] = Field(default_factory=list, description="Optional tags list")
+    quiz_data: Optional[Dict[str, Any]] = Field(default=None, description="Optional quiz & flashcards data")
 
     @field_validator("content")
     @classmethod
@@ -140,6 +141,8 @@ class VaultNoteItem(BaseModel):
     title: str
     file_path: str
     modified_at: str
+    quiz_path: Optional[str] = None
+    video_id: Optional[str] = None
 
 
 class VaultNotesResponse(BaseModel):
@@ -341,6 +344,78 @@ class VideoQAResponse(BaseModel):
         default=None,
         description="Estimated timestamp in MM:SS where the topic is discussed",
     )
+
+
+# Active Recall Quiz & Flashcards Schemas
+class QuizQuestionItem(BaseModel):
+    """Item for an active recall conceptual quiz question and flashcard."""
+
+    id: str = Field(..., description="Unique question identifier e.g. q1")
+    question: str = Field(..., description="High-yield conceptual question")
+    options: list[str] = Field(..., description="4 multiple choice options")
+    correct_answer_index: int = Field(..., ge=0, le=3, description="0-indexed correct option")
+    explanation: str = Field(..., description="Conceptual reasoning and explanation")
+    timestamp_reference: Optional[str] = Field(
+        default=None,
+        description="Estimated timestamp in MM:SS where the concept is taught in video",
+    )
+    flashcard_front: str = Field(..., description="Flashcard prompt or key challenge")
+    flashcard_back: str = Field(..., description="Flashcard answer, key mental model, or takeaway")
+
+
+class VideoQuizRequest(BaseModel):
+    """Payload for POST /api/v1/video/quiz."""
+
+    video_id: str = Field(
+        ...,
+        description="11-character video ID corresponding to an active video in session",
+        examples=["kqtD5dpn9C8"],
+    )
+    markdown_content: Optional[str] = Field(
+        default=None,
+        description="Optional curated markdown note content to ground the quiz",
+    )
+    num_questions: int = Field(
+        default=4,
+        ge=2,
+        le=8,
+        description="Number of active recall questions to generate (2-8)",
+    )
+
+    @field_validator("video_id")
+    @classmethod
+    def validate_video_id(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("video_id tidak boleh kosong.")
+        return cleaned
+
+
+class VideoQuizResponse(BaseModel):
+    """Response payload for active recall quiz generation."""
+
+    success: bool = Field(default=True)
+    video_id: str = Field(..., description="11-character YouTube video ID")
+    total_questions: int = Field(..., description="Total number of quiz questions generated")
+    questions: list[QuizQuestionItem] = Field(default_factory=list)
+
+
+class SaveQuizRequest(BaseModel):
+    """Payload for POST /api/v1/vault/quiz/save."""
+
+    video_id: str = Field(..., description="11-character YouTube video ID")
+    quiz_data: Dict[str, Any] = Field(..., description="Quiz and flashcard payload to persist")
+    file_path: Optional[str] = Field(default=None, description="Optional markdown note file path")
+
+
+class SaveQuizResponse(BaseModel):
+    """Response payload for POST /api/v1/vault/quiz/save."""
+
+    success: bool = Field(default=True)
+    video_id: str
+    quiz_path: Optional[str] = None
+    file_path: Optional[str] = None
+    message: str = Field(default="Kuis Active Recall berhasil disimpan ke Obsidian Vault.")
 
 
 class ErrorResponse(BaseModel):
