@@ -146,7 +146,12 @@ def triage_radar_videos(
     client: Optional[genai.Client] = None,
 ) -> RadarDiscoverResponse:
     import app.features.video_curator.service as this_mod
-    actual_client = client or this_mod.get_genai_client()
+    actual_client = client
+    if actual_client is None:
+        try:
+            actual_client = this_mod.get_genai_client()
+        except Exception:
+            actual_client = None
     return _radar_impl.triage_radar_videos(
         query=query,
         sort_by=sort_by,

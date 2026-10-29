@@ -141,6 +141,7 @@ def save_vault_note(payload: SaveVaultRequest) -> SaveVaultResponse:
         index_summary=payload.index_summary,
         tags=payload.tags,
         quiz_data=payload.quiz_data,
+        auto_link=payload.auto_link,
     )
     return SaveVaultResponse(
         success=True,
@@ -221,6 +222,8 @@ def get_vault_settings() -> VaultSettingsResponse:
         exists=vault_dir.exists(),
         writable=True,
         total_notes=len(notes),
+        gemini_model=settings.GEMINI_MODEL,
+        has_api_key=bool(settings.GEMINI_API_KEY),
         message="Konfigurasi Obsidian Vault berhasil diambil.",
     )
 
@@ -238,6 +241,8 @@ def update_vault_settings(payload: UpdateVaultSettingsRequest) -> VaultSettingsR
         res = update_vault_config(
             vault_path=payload.vault_path,
             curator_folder_name=payload.curator_folder_name,
+            gemini_model=payload.gemini_model,
+            gemini_api_key=payload.gemini_api_key,
         )
         curator_dir = settings.curator_vault_path
         notes = list_vault_notes(curator_dir)
@@ -249,6 +254,8 @@ def update_vault_settings(payload: UpdateVaultSettingsRequest) -> VaultSettingsR
             exists=Path(res["vault_path"]).exists(),
             writable=True,
             total_notes=len(notes),
+            gemini_model=settings.GEMINI_MODEL,
+            has_api_key=bool(settings.GEMINI_API_KEY),
             message="Lokasi Obsidian Vault berhasil diperbarui.",
         )
     except Exception as exc:

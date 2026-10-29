@@ -4,7 +4,15 @@ export type SummaryMode = 'cheatsheet' | 'deepdive' | 'code_action'
 
 export type AgentStatus = 'IDLE' | 'PROCESSING' | 'SUCCESS' | 'ERROR'
 
-export type ActiveStage = 'curate' | 'radar' | 'focus' | 'vault'
+export type ActiveStage =
+  | 'home'
+  | 'vault'
+  | 'focus'
+  | 'library'
+  | 'history'
+  | 'settings'
+  | 'curate'
+  | 'radar'
 
 export interface CuratorConfig {
   mode: SummaryMode
@@ -179,12 +187,16 @@ export interface VaultSettings {
   exists: boolean
   writable: boolean
   total_notes: number
+  gemini_model?: string
+  has_api_key?: boolean
   message?: string
 }
 
 export interface UpdateVaultSettingsPayload {
   vault_path: string
   curator_folder_name?: string
+  gemini_model?: string
+  gemini_api_key?: string
 }
 
 // Zod schema for URL validation (FR-05)

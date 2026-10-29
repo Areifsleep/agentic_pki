@@ -117,11 +117,41 @@ def fetch_youtube_transcript(
     video_id = extract_video_id(url_or_id)
     client = api_client or YouTubeTranscriptApi()
 
+# resolved_lang set above
     try:
         # Use YouTubeTranscriptApi.fetch
         fetched = client.fetch(video_id, languages=languages)
         raw_snippets = fetched.to_raw_data()
-    except (TranscriptsDisabled, NoTranscriptFound) as exc:
+    except NoTranscriptFound:
+        # Fallback to ANY available transcript (manual or auto-generated)
+        try:
+            transcript_list = client.list(video_id)
+            selected = None
+            for t in transcript_list:
+                if not getattr(t, "is_generated", True):
+                    selected = t
+                    break
+            if not selected:
+                for t in transcript_list:
+                    selected = t
+                    break
+            if selected:
+                f_data = selected.fetch()
+                raw_snippets = f_data.to_raw_data() if hasattr(f_data, "to_raw_data") else f_data
+                resolved_lang = getattr(selected, "language_code", "unknown")
+            else:
+                raise TranscriptUnavailableError(
+                    f"Transkrip tidak tersedia atau dinonaktifkan untuk video ID: {video_id}.",
+                    details={"video_id": video_id},
+                )
+        except TranscriptUnavailableError:
+            raise
+        except Exception as inner_exc:
+            raise TranscriptUnavailableError(
+                f"Transkrip tidak tersedia atau dinonaktifkan untuk video ID: {video_id}.",
+                details={"video_id": video_id, "error": str(inner_exc)},
+            ) from inner_exc
+    except TranscriptsDisabled as exc:
         raise TranscriptUnavailableError(
             f"Transkrip tidak tersedia atau dinonaktifkan untuk video ID: {video_id}.",
             details={"video_id": video_id, "error": str(exc)},
@@ -172,7 +202,8 @@ def fetch_youtube_transcript(
     plain_text = " ".join(plain_words)
 
     # Detect the language that was actually matched if available, fallback to first requested
-    resolved_lang = languages[0] if languages else "unknown"
+    if "resolved_lang" not in locals() or not resolved_lang:
+        resolved_lang = languages[0] if languages else "unknown"
 
     return TranscriptResult(
         video_id=video_id,

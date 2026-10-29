@@ -79,7 +79,7 @@ def sanitize_category(category: str) -> str:
     cleaned = re.sub(r"\s+/\s+", " - ", category.strip())
 
     # Split by remaining forward or backward slashes to preserve actual hierarchical paths
-    parts = [p.strip() for p in re.split(r"[/\\]+", cleaned) if p.strip()]
+    parts = [p.strip() for p in re.split(r"[/\\\\]+", cleaned) if p.strip()]
     clean_parts = []
     for p in parts:
         seg = ILLEGAL_FS_CHARS_REGEX.sub("-", p)
@@ -232,23 +232,56 @@ def get_quiz_data(
     return None
 
 
+def get_vault_index(vault_path: Union[str, Path]) -> List[Dict[str, Any]]:
+    """Retrieves all indexed note items from vault_index.json."""
+    base_vault = Path(vault_path).expanduser().resolve()
+    index_file = base_vault / "vault_index.json"
+    if not index_file.exists() or not index_file.is_file():
+        return []
+    try:
+        items = json.loads(index_file.read_text(encoding="utf-8"))
+        return items if isinstance(items, list) else []
+    except Exception:
+        return []
+
+
+def update_vault_index(vault_path: Union[str, Path], entry: Dict[str, Any]) -> None:
+    """Updates the local JSON catalog vault_index.json with a new or updated note."""
+    base_vault = Path(vault_path).expanduser().resolve()
+    base_vault.mkdir(parents=True, exist_ok=True)
+    index_file = base_vault / "vault_index.json"
+
+    items: List[Dict[str, Any]] = []
+    if index_file.exists() and index_file.is_file():
+        try:
+            items = json.loads(index_file.read_text(encoding="utf-8"))
+            if not isinstance(items, list):
+                items = []
+        except Exception:
+            items = []
+
+    # Update if already exists with same file_path, else append
+    target_path = entry.get("file_path")
+    updated = False
+    for i, it in enumerate(items):
+        if it.get("file_path") == target_path:
+            items[i] = entry
+            updated = True
+            break
+
+    if not updated:
+        items.insert(0, entry)
+
+    index_file.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
 def append_or_update_quiz_in_vault(
     vault_path: Union[str, Path],
     video_id: str,
     quiz_data: Any,
     file_path: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Updates or appends quiz section in the existing markdown note and saves JSON sidecar.
-
-    Args:
-        vault_path: Root obsidian vault directory.
-        video_id: 11-char YouTube video ID.
-        quiz_data: Quiz question objects or dict.
-        file_path: Optional specific relative or absolute markdown note path.
-
-    Returns:
-        Dict with success status, quiz_path, and file_path.
-    """
+    """Updates or appends quiz section in the existing markdown note and saves JSON sidecar."""
     base_vault = Path(vault_path).expanduser().resolve()
 
     # 1. Save JSON sidecar
@@ -352,6 +385,120 @@ def resolve_unique_filepath(target_dir: Path, filename: str) -> Path:
     return new_path
 
 
+def auto_link_wikilinks(
+    content: str,
+    vault_path: Union[str, Path],
+    current_title: Optional[str] = None,
+) -> str:
+    """Scans existing notes in the Obsidian Vault and converts plain concept mentions into [[Note Title]].
+
+    Protects fenced code blocks, inline code, URLs, existing markdown/wikilinks, and headings.
+    Only concepts with length >= 3 are considered, ordered by length descending.
+
+    Args:
+        content: Raw markdown text to be linked.
+        vault_path: Path to root Obsidian Vault.
+        current_title: Title of note being saved, to avoid self-linking.
+
+    Returns:
+        Transformed markdown content containing [[Wikilinks]].
+    """
+    if not content or not content.strip():
+        return content
+
+    try:
+        base_vault = Path(vault_path).expanduser().resolve()
+        if not base_vault.exists():
+            return content
+
+        # 1. Collect candidate concept targets from vault_index and files
+        candidates: Dict[str, str] = {}  # concept_text_lower -> canonical_target_name
+
+        index_items = get_vault_index(base_vault)
+        for it in index_items:
+            title = it.get("title")
+            if title and isinstance(title, str):
+                clean_title = title.strip()
+                if len(clean_title) >= 3:
+                    candidates[clean_title.lower()] = clean_title
+            tags = it.get("tags", [])
+            if isinstance(tags, list):
+                for tg in tags:
+                    clean_tag = str(tg).strip().lstrip("#")
+                    if (
+                        len(clean_tag) >= 4
+                        and clean_tag.lower() not in {"general", "video", "notes", "youtube", "tutorial"}
+                    ):
+                        target = title.strip() if title else clean_tag
+                        candidates[clean_tag.lower()] = target
+
+        # From actual .md file stems in vault
+        for md_file in base_vault.rglob("*.md"):
+            if md_file.is_file() and not md_file.name.startswith((".", "_")):
+                stem_title = md_file.stem.replace("-", " ").strip()
+                if len(stem_title) >= 3 and stem_title.lower() not in candidates:
+                    candidates[stem_title.lower()] = stem_title
+
+        # Exclude current note title to prevent self-linking
+        if current_title:
+            candidates.pop(current_title.strip().lower(), None)
+            stem_current = sanitize_filename(current_title).replace(".md", "").replace("-", " ")
+            candidates.pop(stem_current.lower(), None)
+
+        if not candidates:
+            return content
+
+        # Sort candidates by length descending so longer phrases match first
+        sorted_concepts = sorted(candidates.keys(), key=len, reverse=True)
+
+        # 2. Protect sensitive blocks (code blocks, inline code, wikilinks, markdown links, URLs, headings)
+        protected_blocks: List[str] = []
+
+        def protect_match(match: re.Match) -> str:
+            idx = len(protected_blocks)
+            protected_blocks.append(match.group(0))
+            return f"\x00PROTECTED_{idx}\x00"
+
+        temp_content = content
+        # Fenced code blocks ```...``` or ~~~...~~~
+        temp_content = re.sub(r"(```[\s\S]*?```|~~~[\s\S]*?~~~)", protect_match, temp_content)
+        # Inline code `...`
+        temp_content = re.sub(r"(`[^`\n]+`)", protect_match, temp_content)
+        # Existing wikilinks [[...]]
+        temp_content = re.sub(r"(\[\[[^\]]+\]\])", protect_match, temp_content)
+        # Existing markdown links/images [text](url) or ![text](url)
+        temp_content = re.sub(r"(!?\[[^\]]*\]\([^)]+\))", protect_match, temp_content)
+        # Raw URLs
+        temp_content = re.sub(r"(https?://[^\s)\]]+)", protect_match, temp_content)
+        # Headings ^#+ .*
+        temp_content = re.sub(r"(^#{1,6}\s+.*$)", protect_match, temp_content, flags=re.MULTILINE)
+
+        # 3. Match and replace concept terms (once per concept)
+        for concept_lower in sorted_concepts:
+            canonical_target = candidates[concept_lower]
+            pattern = re.compile(rf"\b({re.escape(concept_lower)})\b", re.IGNORECASE)
+
+            def replace_with_wikilink(m: re.Match) -> str:
+                matched_text = m.group(1)
+                if matched_text.lower() == canonical_target.lower():
+                    link_str = f"[[{canonical_target}]]"
+                else:
+                    link_str = f"[[{canonical_target}|{matched_text}]]"
+                idx = len(protected_blocks)
+                protected_blocks.append(link_str)
+                return f"\x00PROTECTED_{idx}\x00"
+
+            temp_content, count = pattern.subn(replace_with_wikilink, temp_content, count=1)
+
+        # 4. Restore protected blocks
+        for idx, block in enumerate(protected_blocks):
+            temp_content = temp_content.replace(f"\x00PROTECTED_{idx}\x00", block)
+
+        return temp_content
+    except Exception:
+        return content
+
+
 def save_markdown_to_vault(
     vault_path: Union[str, Path],
     category: str,
@@ -363,11 +510,13 @@ def save_markdown_to_vault(
     index_summary: Optional[str] = None,
     tags: Optional[List[str]] = None,
     quiz_data: Optional[Any] = None,
+    auto_link: bool = True,
 ) -> ObsidianSaveResult:
     """Saves a markdown note physically to the user's local Obsidian Vault.
 
-    Creates subfolders automatically (FR-11), isolates raw transcripts to
-    _transcripts/<video_id>.txt, and stores structured summaries in vault_index.json.
+    Creates subfolders automatically (FR-11), auto-links concepts to existing vault notes
+    using [[Wikilinks]], isolates raw transcripts to _transcripts/<video_id>.txt, and stores
+    structured summaries in vault_index.json.
 
     Args:
         vault_path: Root path to the Obsidian Vault directory.
@@ -379,6 +528,8 @@ def save_markdown_to_vault(
         transcript_text: Optional full raw transcript text for separate storage.
         index_summary: Optional clean 1-2 sentence conceptual summary.
         tags: Optional list of topic tags.
+        quiz_data: Optional quiz and flashcards data.
+        auto_link: Whether to auto-link concepts to existing vault notes.
 
     Returns:
         ObsidianSaveResult with file path, name, category, and bytes written.
@@ -401,8 +552,20 @@ def save_markdown_to_vault(
 
         target_file = resolve_unique_filepath(target_dir, initial_name)
 
-        # Append Obsidian callouts if quiz_data provided and not already present
         final_content = content
+
+        # Auto-link wikilinks if enabled and not disabled
+        if auto_link:
+            try:
+                final_content = auto_link_wikilinks(
+                    content=final_content,
+                    vault_path=base_vault,
+                    current_title=title,
+                )
+            except Exception:
+                pass
+
+        # Append Obsidian callouts if quiz_data provided and not already present
         if quiz_data:
             clean_content = re.split(r"(?:(?:\r?\n)+---)?(?:\r?\n)+##\s*🧠\s*Active Recall & Self-Quiz", final_content)[0].strip()
             final_content = clean_content + format_quiz_as_obsidian_markdown(quiz_data)
@@ -691,46 +854,3 @@ def get_vault_video_ids(vault_path: Union[str, Path]) -> set[str]:
             continue
 
     return video_ids
-
-
-def update_vault_index(vault_path: Union[str, Path], entry: Dict[str, Any]) -> None:
-    """Updates the local JSON catalog vault_index.json with a new or updated note."""
-    base_vault = Path(vault_path).expanduser().resolve()
-    base_vault.mkdir(parents=True, exist_ok=True)
-    index_file = base_vault / "vault_index.json"
-
-    items: List[Dict[str, Any]] = []
-    if index_file.exists() and index_file.is_file():
-        try:
-            items = json.loads(index_file.read_text(encoding="utf-8"))
-            if not isinstance(items, list):
-                items = []
-        except Exception:
-            items = []
-
-    # Update if already exists with same file_path, else append
-    target_path = entry.get("file_path")
-    updated = False
-    for i, it in enumerate(items):
-        if it.get("file_path") == target_path:
-            items[i] = entry
-            updated = True
-            break
-
-    if not updated:
-        items.insert(0, entry)
-
-    index_file.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-def get_vault_index(vault_path: Union[str, Path]) -> List[Dict[str, Any]]:
-    """Retrieves all indexed note items from vault_index.json."""
-    base_vault = Path(vault_path).expanduser().resolve()
-    index_file = base_vault / "vault_index.json"
-    if not index_file.exists() or not index_file.is_file():
-        return []
-    try:
-        items = json.loads(index_file.read_text(encoding="utf-8"))
-        return items if isinstance(items, list) else []
-    except Exception:
-        return []

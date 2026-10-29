@@ -194,3 +194,52 @@ class TestObsidianTool:
         assert entry["transcript_path"] == "_transcripts/abc123xyz78.txt"
         assert entry["summary"] == "Panduan dependency injection di FastAPI."
         assert "fastapi" in entry["tags"]
+
+    def test_auto_link_wikilinks(self, tmp_path: Path):
+        from app.features.video_curator.tools.obsidian_tool import auto_link_wikilinks
+        vault = tmp_path / "TestVault"
+        save_markdown_to_vault(
+            vault_path=vault,
+            category="Distributed Systems",
+            title="Raft Consensus",
+            content="# Raft Consensus\n\nDetail tentang leader election.",
+            tags=["raft", "consensus"],
+        )
+
+        raw_text = "Kita mempelajari Raft Consensus untuk arsitektur terdistribusi."
+        linked_text = auto_link_wikilinks(
+            content=raw_text,
+            vault_path=vault,
+            current_title="Paxos vs Raft",
+        )
+
+        assert "[[Raft Consensus]]" in linked_text
+
+    def test_auto_link_protects_code_and_existing_links(self, tmp_path: Path):
+        from app.features.video_curator.tools.obsidian_tool import auto_link_wikilinks
+        vault = tmp_path / "TestVault"
+        save_markdown_to_vault(
+            vault_path=vault,
+            category="Backend",
+            title="FastAPI Lifespan",
+            content="# FastAPI Lifespan\n\nContext manager lifespan.",
+        )
+
+        text_with_code = (
+            "# Main Note\n\n"
+            "Berikut contoh penggunaan FastAPI Lifespan dalam teks.\n"
+            "```python\n# Do not link FastAPI Lifespan here\npass\n```\n"
+            "Juga `FastAPI Lifespan` inline code tidak boleh diubah.\n"
+            "Dan [FastAPI Lifespan](https://fastapi.tiangolo.com) link biasa."
+        )
+
+        linked = auto_link_wikilinks(
+            content=text_with_code,
+            vault_path=vault,
+            current_title="Overview",
+        )
+
+        assert "[[FastAPI Lifespan]]" in linked
+        assert "```python\n# Do not link FastAPI Lifespan here\npass\n```" in linked
+        assert "`FastAPI Lifespan`" in linked
+        assert "[FastAPI Lifespan](https://fastapi.tiangolo.com)" in linked

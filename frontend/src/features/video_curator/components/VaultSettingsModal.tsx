@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner'
 import { api } from '../../../lib/api'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
+import { useTheme } from '../hooks/useTheme'
 import type { VaultSettings, UpdateVaultSettingsPayload } from '../types'
 
 export function VaultSettingsModal() {
@@ -22,6 +23,7 @@ export function VaultSettingsModal() {
     setVaultPath,
     setVaultSettings,
   } = useVideoCuratorStore()
+  const { isDark } = useTheme()
   const queryClient = useQueryClient()
 
   const [syncedKey, setSyncedKey] = useState<string | null>(null)
@@ -103,30 +105,42 @@ export function VaultSettingsModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#e4e4e7] overflow-hidden flex flex-col scale-in-95 duration-200 animate-in"
+        className={`w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden flex flex-col scale-in-95 duration-200 animate-in transition-colors ${
+          isDark
+            ? 'bg-[#17171c] border-[#27272a] text-[#f4f4f5]'
+            : 'bg-white border-[#e4e4e7] text-[#18181b]'
+        }`}
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-[#f4f4f5] flex items-center justify-between bg-[#fafafa]">
+        <div
+          className={`px-6 py-5 border-b flex items-center justify-between ${
+            isDark ? 'bg-[#141419] border-[#27272a]' : 'bg-[#fafafa] border-[#f4f4f5]'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#17171c] text-white flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-xs">
               <FolderCog className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-[#18181b] tracking-tight">
+              <h3 className={`text-base font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
                 Pengaturan Obsidian Vault
               </h3>
-              <p className="text-xs text-[#71717a]">
+              <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                 Tentukan lokasi penyimpanan berkas markdown di komputer lokal Anda
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsVaultSettingsOpen(false)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5] transition-colors cursor-pointer"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+              isDark
+                ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]'
+                : 'text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5]'
+            }`}
             title="Tutup dialog"
           >
             <X className="w-4 h-4" />
@@ -136,28 +150,28 @@ export function VaultSettingsModal() {
         {/* Content Body */}
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-[#71717a]">
-              <Loader2 className="w-6 h-6 animate-spin text-[#17171c]" />
+            <div className={`py-12 flex flex-col items-center justify-center gap-2 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
+              <Loader2 className={`w-6 h-6 animate-spin ${isDark ? 'text-white' : 'text-[#17171c]'}`} />
               <span className="text-xs font-medium">Memuat konfigurasi direktori...</span>
             </div>
           ) : (
             <>
               {/* Field 1: Obsidian Vault Root Path */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-[#27272a] uppercase tracking-wider flex items-center justify-between">
+                <label className={`text-xs font-semibold uppercase tracking-wider flex items-center justify-between ${isDark ? 'text-zinc-300' : 'text-[#27272a]'}`}>
                   <span>Lokasi Direktori Obsidian Vault</span>
                   {settingsData?.exists ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-normal text-emerald-600">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-normal text-emerald-400">
                       <FolderCheck className="w-3.5 h-3.5" /> Terdeteksi di Komputer
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-normal text-amber-600">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-normal text-amber-400">
                       <FolderPlus className="w-3.5 h-3.5" /> Akan Dibuat Otomatis
                     </span>
                   )}
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#71717a]">
+                  <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${isDark ? 'text-zinc-500' : 'text-[#71717a]'}`}>
                     <HardDrive className="w-4 h-4" />
                   </div>
                   <input
@@ -165,31 +179,43 @@ export function VaultSettingsModal() {
                     value={inputVaultPath}
                     onChange={(e) => setInputVaultPath(e.target.value)}
                     placeholder="/home/username/Documents/ObsidianVault"
-                    className="w-full pl-9 pr-4 py-2 text-xs font-mono bg-[#ffffff] border border-[#d4d4d8] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#17171c] focus:border-transparent text-[#18181b] transition-all shadow-2xs"
+                    className={`w-full pl-9 pr-4 py-2 text-xs font-mono rounded-xl focus:outline-hidden transition-all shadow-2xs ${
+                      isDark
+                        ? 'bg-[#121216] border border-[#27272a] text-white focus:border-[#3f3f46]'
+                        : 'bg-[#ffffff] border border-[#d4d4d8] text-[#18181b] focus:ring-2 focus:ring-[#17171c]'
+                    }`}
                   />
                 </div>
-                <p className="text-[11px] text-[#71717a] leading-relaxed">
+                <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                   Masukkan absolute path ke root folder Obsidian Vault Anda (contoh:{' '}
-                  <code className="px-1 py-0.5 bg-[#f4f4f5] rounded text-[10px]">~/Documents/ObsidianVault</code> atau{' '}
-                  <code className="px-1 py-0.5 bg-[#f4f4f5] rounded text-[10px]">D:\Notes\Obsidian</code>).
+                  <code className={`px-1 py-0.5 rounded text-[10px] ${isDark ? 'bg-[#27272a] text-zinc-200' : 'bg-[#f4f4f5]'}`}>~/Documents/ObsidianVault</code> atau{' '}
+                  <code className={`px-1 py-0.5 rounded text-[10px] ${isDark ? 'bg-[#27272a] text-zinc-200' : 'bg-[#f4f4f5]'}`}>D:\Notes\Obsidian</code>).
                 </p>
               </div>
 
               {/* Quick Preset Buttons */}
               <div className="space-y-1.5">
-                <span className="text-[11px] font-medium text-[#71717a]">Preset Rekomendasi:</span>
+                <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>Preset Rekomendasi:</span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => handlePresetSelect('~/Documents/ObsidianVault')}
-                    className="px-2.5 py-1 text-xs bg-[#f4f4f5] hover:bg-[#e4e4e7] text-[#27272a] rounded-lg border border-[#e4e4e7] transition-colors cursor-pointer font-mono"
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-colors cursor-pointer font-mono ${
+                      isDark
+                        ? 'bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 border-[#3f3f46]'
+                        : 'bg-[#f4f4f5] hover:bg-[#e4e4e7] text-[#27272a] border-[#e4e4e7]'
+                    }`}
                   >
                     ~/Documents/ObsidianVault
                   </button>
                   <button
                     type="button"
                     onClick={() => handlePresetSelect('~/ObsidianVault')}
-                    className="px-2.5 py-1 text-xs bg-[#f4f4f5] hover:bg-[#e4e4e7] text-[#27272a] rounded-lg border border-[#e4e4e7] transition-colors cursor-pointer font-mono"
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-colors cursor-pointer font-mono ${
+                      isDark
+                        ? 'bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 border-[#3f3f46]'
+                        : 'bg-[#f4f4f5] hover:bg-[#e4e4e7] text-[#27272a] border-[#e4e4e7]'
+                    }`}
                   >
                     ~/ObsidianVault
                   </button>
@@ -197,8 +223,8 @@ export function VaultSettingsModal() {
               </div>
 
               {/* Field 2: Dedicated Curator Subfolder */}
-              <div className="space-y-2 pt-2 border-t border-[#f4f4f5]">
-                <label className="text-xs font-semibold text-[#27272a] uppercase tracking-wider block">
+              <div className={`space-y-2 pt-2 border-t ${isDark ? 'border-[#27272a]' : 'border-[#f4f4f5]'}`}>
+                <label className={`text-xs font-semibold uppercase tracking-wider block ${isDark ? 'text-zinc-300' : 'text-[#27272a]'}`}>
                   Subfolder Khusus Kurasi
                 </label>
                 <input
@@ -206,27 +232,41 @@ export function VaultSettingsModal() {
                   value={inputFolderName}
                   onChange={(e) => setInputFolderName(e.target.value)}
                   placeholder="Agentic Curator"
-                  className="w-full px-3.5 py-2 text-xs bg-[#ffffff] border border-[#d4d4d8] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#17171c] focus:border-transparent text-[#18181b] transition-all shadow-2xs"
+                  className={`w-full px-3.5 py-2 text-xs rounded-xl focus:outline-hidden transition-all shadow-2xs ${
+                    isDark
+                      ? 'bg-[#121216] border border-[#27272a] text-white focus:border-[#3f3f46]'
+                      : 'bg-[#ffffff] border border-[#d4d4d8] text-[#18181b] focus:ring-2 focus:ring-[#17171c]'
+                  }`}
                 />
-                <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-[#64748b] shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-[#475569] leading-relaxed">
-                    Semua catatan kurasi, pilar <code className="font-mono text-[10px]">my_focus.md</code>, dan katalog{' '}
-                    <code className="font-mono text-[10px]">vault_index.json</code> akan ditempatkan di dalam subfolder ini agar tidak tercampur dengan catatan pribadi Anda.
+                <div
+                  className={`p-3 rounded-xl flex items-start gap-2.5 border ${
+                    isDark
+                      ? 'bg-[#121216] border-[#27272a] text-zinc-300'
+                      : 'bg-[#f8fafc] border-[#e2e8f0] text-[#475569]'
+                  }`}
+                >
+                  <Info className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">
+                    Semua catatan kurasi, pilar <code className={`font-mono text-[10px] px-1 py-0.5 rounded ${isDark ? 'bg-[#27272a]' : 'bg-[#e2e8f0]'}`}>my_focus.md</code>, dan katalog{' '}
+                    <code className={`font-mono text-[10px] px-1 py-0.5 rounded ${isDark ? 'bg-[#27272a]' : 'bg-[#e2e8f0]'}`}>vault_index.json</code> akan ditempatkan di dalam subfolder ini agar tidak tercampur dengan catatan pribadi Anda.
                   </p>
                 </div>
               </div>
 
               {/* Current Status Box */}
               {settingsData && (
-                <div className="p-3 bg-[#fafafa] rounded-xl border border-[#f4f4f5] text-xs space-y-1">
-                  <div className="flex items-center justify-between text-[#71717a]">
+                <div
+                  className={`p-3 rounded-xl border text-xs space-y-1 ${
+                    isDark ? 'bg-[#141419] border-[#27272a]' : 'bg-[#fafafa] border-[#f4f4f5]'
+                  }`}
+                >
+                  <div className={`flex items-center justify-between ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                     <span>Catatan tersimpan saat ini:</span>
-                    <span className="font-semibold text-[#18181b]">{settingsData.total_notes} berkas</span>
+                    <span className={`font-semibold ${isDark ? 'text-white' : 'text-[#18181b]'}`}>{settingsData.total_notes} berkas</span>
                   </div>
-                  <div className="flex items-center justify-between text-[#71717a] font-mono text-[11px] truncate">
+                  <div className={`flex items-center justify-between font-mono text-[11px] truncate ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                     <span>Target Folder:</span>
-                    <span className="truncate max-w-[260px] text-[#18181b]" title={settingsData.curator_vault_path}>
+                    <span className={`truncate max-w-[260px] ${isDark ? 'text-zinc-200' : 'text-[#18181b]'}`} title={settingsData.curator_vault_path}>
                       {settingsData.curator_vault_path}
                     </span>
                   </div>
@@ -237,12 +277,20 @@ export function VaultSettingsModal() {
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-[#f4f4f5] bg-[#fafafa] flex items-center justify-end gap-3">
+        <div
+          className={`px-6 py-4 border-t flex items-center justify-end gap-3 ${
+            isDark ? 'bg-[#141419] border-[#27272a]' : 'bg-[#fafafa] border-[#f4f4f5]'
+          }`}
+        >
           <button
             type="button"
             onClick={() => setIsVaultSettingsOpen(false)}
             disabled={updateMutation.isPending}
-            className="px-4 py-2 text-xs font-medium text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5] rounded-xl transition-colors cursor-pointer"
+            className={`px-4 py-2 text-xs font-medium rounded-xl transition-colors cursor-pointer ${
+              isDark
+                ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]'
+                : 'text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5]'
+            }`}
           >
             Batal
           </button>
@@ -250,7 +298,11 @@ export function VaultSettingsModal() {
             type="button"
             onClick={handleSave}
             disabled={updateMutation.isPending || isLoading}
-            className="px-5 py-2 text-xs font-semibold text-white bg-[#17171c] hover:bg-[#27272a] rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            className={`px-5 py-2 text-xs font-semibold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 ${
+              isDark
+                ? 'bg-white hover:bg-zinc-200 text-black'
+                : 'text-white bg-[#17171c] hover:bg-[#27272a]'
+            }`}
           >
             {updateMutation.isPending ? (
               <>
@@ -259,7 +311,7 @@ export function VaultSettingsModal() {
               </>
             ) : (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Terapkan & Simpan</span>
               </>
             )}

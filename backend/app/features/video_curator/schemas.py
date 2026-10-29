@@ -110,6 +110,7 @@ class SaveVaultRequest(BaseModel):
     index_summary: Optional[str] = Field(default=None, description="Optional structured index summary")
     tags: list[str] = Field(default_factory=list, description="Optional tags list")
     quiz_data: Optional[Dict[str, Any]] = Field(default=None, description="Optional quiz & flashcards data")
+    auto_link: bool = Field(default=True, description="Whether to auto-link concepts to existing notes")
 
     @field_validator("content")
     @classmethod
@@ -163,6 +164,8 @@ class VaultSettingsResponse(BaseModel):
     exists: bool = Field(..., description="Whether the vault directory exists on disk")
     writable: bool = Field(default=True, description="Whether the directory is writable")
     total_notes: int = Field(default=0, description="Total notes currently stored in curator vault")
+    gemini_model: str = Field(default="gemini-3.5-flash-lite", description="Active Gemini AI model")
+    has_api_key: bool = Field(default=False, description="Whether Gemini API key is configured")
     message: Optional[str] = Field(default=None, description="Optional status message")
 
 
@@ -173,6 +176,14 @@ class UpdateVaultSettingsRequest(BaseModel):
     curator_folder_name: Optional[str] = Field(
         default=None,
         description="Optional custom subfolder name (defaults to current setting)",
+    )
+    gemini_model: Optional[str] = Field(
+        default=None,
+        description="Optional Gemini AI model identifier",
+    )
+    gemini_api_key: Optional[str] = Field(
+        default=None,
+        description="Optional Gemini API key",
     )
 
     @field_validator("vault_path")

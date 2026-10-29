@@ -29,6 +29,53 @@ interface VideoCuratorState {
   // Navigation & Dynamic Stage
   activeStage: ActiveStage
   setActiveStage: (stage: ActiveStage) => void
+  isSidebarExpanded: boolean
+  setIsSidebarExpanded: (expanded: boolean) => void
+  toggleSidebar: (expanded?: boolean) => void
+
+  // Global Omni Search
+  omniSearchQuery: string
+  setOmniSearchQuery: (q: string) => void
+
+  // Add URL Modal
+  isAddUrlOpen: boolean
+  setIsAddUrlOpen: (open: boolean) => void
+
+  // Preferences & Appearance
+  appearance: 'light' | 'dark' | 'system'
+  setAppearance: (app: 'light' | 'dark' | 'system') => void
+  curationSensitivity: number
+  setCurationSensitivity: (s: number) => void
+  antiClickbaitEnabled: boolean
+  setAntiClickbaitEnabled: (enabled: boolean) => void
+  autoExportOnFinish: boolean
+  setAutoExportOnFinish: (enabled: boolean) => void
+  wikilinkMatchingEnabled: boolean
+  setWikilinkMatchingEnabled: (enabled: boolean) => void
+  agentFrequencyHours: number
+  setAgentFrequencyHours: (hours: number) => void
+  curatorFolderName: string
+  setCuratorFolderName: (name: string) => void
+  aiModel: string
+  setAiModel: (model: string) => void
+  aiApiKey: string
+  setAiApiKey: (key: string) => void
+  aiTemperature: number
+  setAiTemperature: (t: number) => void
+  aiMaxTokens: number
+  setAiMaxTokens: (tokens: number) => void
+  strictCodeBlocks: boolean
+  setStrictCodeBlocks: (strict: boolean) => void
+  desktopNotificationsEnabled: boolean
+  setDesktopNotificationsEnabled: (enabled: boolean) => void
+  completionSoundEnabled: boolean
+  setCompletionSoundEnabled: (enabled: boolean) => void
+  radarHighSignalAlerts: boolean
+  setRadarHighSignalAlerts: (enabled: boolean) => void
+  flashcardReviewReminders: boolean
+  setFlashcardReviewReminders: (enabled: boolean) => void
+  stepProgressToasts: boolean
+  setStepProgressToasts: (enabled: boolean) => void
 
   // Curation Workspace State
   status: AgentStatus
@@ -111,8 +158,72 @@ interface VideoCuratorState {
 }
 
 export const useVideoCuratorStore = create<VideoCuratorState>((set) => ({
-  activeStage: 'curate',
+  activeStage: 'home',
   setActiveStage: (activeStage) => set({ activeStage }),
+  isSidebarExpanded: false,
+  setIsSidebarExpanded: (isSidebarExpanded) => set({ isSidebarExpanded }),
+  toggleSidebar: (expanded) =>
+    set((state) => ({
+      isSidebarExpanded: expanded !== undefined ? expanded : !state.isSidebarExpanded,
+    })),
+
+  omniSearchQuery: '',
+  setOmniSearchQuery: (omniSearchQuery) => set({ omniSearchQuery }),
+
+  isAddUrlOpen: false,
+  setIsAddUrlOpen: (isAddUrlOpen) => set({ isAddUrlOpen }),
+
+  appearance:
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('studytube_appearance') as 'light' | 'dark' | 'system')) ||
+    'dark',
+  setAppearance: (appearance) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('studytube_appearance', appearance)
+    }
+    set({ appearance })
+  },
+  curationSensitivity: 85,
+  setCurationSensitivity: (curationSensitivity) => set({ curationSensitivity }),
+  antiClickbaitEnabled: true,
+  setAntiClickbaitEnabled: (antiClickbaitEnabled) => set({ antiClickbaitEnabled }),
+  autoExportOnFinish: true,
+  setAutoExportOnFinish: (autoExportOnFinish) => set({ autoExportOnFinish }),
+  wikilinkMatchingEnabled: true,
+  setWikilinkMatchingEnabled: (wikilinkMatchingEnabled) => set({ wikilinkMatchingEnabled }),
+  agentFrequencyHours: 4,
+  setAgentFrequencyHours: (agentFrequencyHours) => set({ agentFrequencyHours }),
+  curatorFolderName: 'Agentic Curator',
+  setCuratorFolderName: (curatorFolderName) => set({ curatorFolderName }),
+  aiModel: (typeof window !== 'undefined' && localStorage.getItem('studytube_ai_model')) || 'gemini-2.5-flash',
+  setAiModel: (aiModel) => {
+    if (typeof window !== 'undefined') localStorage.setItem('studytube_ai_model', aiModel)
+    set({ aiModel })
+  },
+  aiApiKey: (typeof window !== 'undefined' && localStorage.getItem('studytube_ai_key')) || '',
+  setAiApiKey: (aiApiKey) => {
+    if (typeof window !== 'undefined') localStorage.setItem('studytube_ai_key', aiApiKey)
+    set({ aiApiKey })
+  },
+  aiTemperature: 0.2,
+  setAiTemperature: (aiTemperature) => set({ aiTemperature }),
+  aiMaxTokens: 4096,
+  setAiMaxTokens: (aiMaxTokens) => set({ aiMaxTokens }),
+  strictCodeBlocks: true,
+  setStrictCodeBlocks: (strictCodeBlocks) => set({ strictCodeBlocks }),
+  desktopNotificationsEnabled: (typeof window !== 'undefined' && localStorage.getItem('studytube_notif_desktop') === 'true') || false,
+  setDesktopNotificationsEnabled: (desktopNotificationsEnabled) => {
+    if (typeof window !== 'undefined') localStorage.setItem('studytube_notif_desktop', String(desktopNotificationsEnabled))
+    set({ desktopNotificationsEnabled })
+  },
+  completionSoundEnabled: true,
+  setCompletionSoundEnabled: (completionSoundEnabled) => set({ completionSoundEnabled }),
+  radarHighSignalAlerts: true,
+  setRadarHighSignalAlerts: (radarHighSignalAlerts) => set({ radarHighSignalAlerts }),
+  flashcardReviewReminders: true,
+  setFlashcardReviewReminders: (flashcardReviewReminders) => set({ flashcardReviewReminders }),
+  stepProgressToasts: true,
+  setStepProgressToasts: (stepProgressToasts) => set({ stepProgressToasts }),
 
   status: 'IDLE',
   videoUrl: '',

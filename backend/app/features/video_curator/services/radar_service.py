@@ -88,7 +88,7 @@ def triage_radar_videos(
        - Layer 2: Session Seen Cache (videos already shown in this search session).
        - Layer 3: Dismissed IDs (videos manually ignored by user).
     3. Feeds only 6 clean candidates to Gemini per batch prompt.
-    4. Automatically consumes continuation tokens to refill buffer when exhausted.
+    4. Automatically consumes continuation tokens or query variations from my_focus.md.
     """
     clean_stale_radar_buffers()
     search_fn = search_candidates_fn or search_candidate_videos
@@ -141,6 +141,47 @@ def triage_radar_videos(
             c for c in raw_candidates
             if c.video_id not in vault_ids and c.video_id not in dismissed_set
         ]
+
+        # Multi-topic / Query variations rotation fallback:
+        # If user did not provide an explicit search query and clean candidates are fewer than 12,
+        # rotate through query_variations pre-computed in my_focus.md or additional focus topics.
+        if (not query or not query.strip()) and len(clean_candidates) < 12:
+            variation_queries: List[str] = []
+            q_vars = focus_targets.get("query_variations", {})
+            if isinstance(q_vars, dict):
+                for _top_name, vars_list in q_vars.items():
+                    if isinstance(vars_list, list):
+                        for vq in vars_list:
+                            clean_vq = str(vq).strip()
+                            if clean_vq and clean_vq not in variation_queries and clean_vq != search_query:
+                                variation_queries.append(clean_vq)
+
+            for t in topics[1:]:
+                clean_t = str(t).strip()
+                if clean_t and clean_t not in variation_queries and clean_t != search_query:
+                    variation_queries.append(clean_t)
+
+            for alt_q in variation_queries:
+                if len(clean_candidates) >= 24:
+                    break
+                try:
+                    alt_outcome = search_fn(alt_q, max_candidates=12, sort_by=sort_by)
+                    alt_candidates = (
+                        alt_outcome.candidates
+                        if isinstance(alt_outcome, RadarSearchResult)
+                        else (alt_outcome if isinstance(alt_outcome, list) else [])
+                    )
+                    existing_ids = {c.video_id for c in clean_candidates}
+                    for ac in alt_candidates:
+                        if (
+                            ac.video_id not in vault_ids
+                            and ac.video_id not in dismissed_set
+                            and ac.video_id not in existing_ids
+                        ):
+                            clean_candidates.append(ac)
+                            existing_ids.add(ac.video_id)
+                except Exception:
+                    continue
 
         new_search_id = str(uuid.uuid4())
         buffer = RadarSearchBuffer(
@@ -197,10 +238,10 @@ def triage_radar_videos(
         anti_goals=anti_goals,
     )
 
-    gen_client = client or get_genai_client()
     evaluated_items: List[RadarVideoItem] = []
 
     try:
+        gen_client = client or get_genai_client()
         response = gen_client.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=triage_prompt,

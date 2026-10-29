@@ -19,6 +19,7 @@ import {
   Tv,
 } from 'lucide-react'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
+import { useTheme } from '../hooks/useTheme'
 import {
   useSynthesizeVideoMutation,
   useVideoQAMutation,
@@ -46,6 +47,7 @@ export function CommandDeck() {
     isFloatingPlayer,
   } = useVideoCuratorStore()
 
+  const { isDark } = useTheme()
   const [validationError, setValidationError] = useState<string | null>(null)
   const [qaInput, setQaInput] = useState('')
 
@@ -53,8 +55,6 @@ export function CommandDeck() {
   const qaMutation = useVideoQAMutation()
 
   const isSynthesizing = status === 'PROCESSING' || synthesizeMutation.isPending
-
-  // Video ID resolved via shared utility
 
   const detectedVideoId = extractVideoId(videoUrl.trim())
 
@@ -134,11 +134,17 @@ export function CommandDeck() {
   }
 
   return (
-    <section className="w-full lg:w-[390px] shrink-0 border-r border-[#e4e4e7] bg-[#ffffff] flex flex-col h-screen overflow-hidden select-none">
+    <section
+      className={`w-full lg:w-[390px] shrink-0 border-r flex flex-col h-full min-h-0 overflow-hidden select-none transition-colors ${
+        isDark
+          ? 'bg-[#141419] border-[#27272a] text-[#f4f4f5]'
+          : 'bg-[#ffffff] border-[#e4e4e7] text-[#18181b]'
+      }`}
+    >
       {/* Top Header / Title */}
-      <div className="px-5 pt-5 pb-3 border-b border-[#f4f4f5]">
+      <div className={`px-5 pt-5 pb-3 border-b ${isDark ? 'border-[#27272a]' : 'border-[#f4f4f5]'}`}>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
+          <span className={`text-[11px] font-mono uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
             Command Deck
           </span>
           {(detectedVideoId || activeDraft?.video_id) && (
@@ -147,8 +153,12 @@ export function CommandDeck() {
               onClick={() => togglePlayer()}
               className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border flex items-center gap-1 transition-colors cursor-pointer ${
                 isPlayerOpen
-                  ? 'bg-[#17171c] text-white border-[#17171c]'
-                  : 'bg-[#f4f4f5] text-[#52525b] border-[#e4e4e7] hover:bg-[#eeece7]'
+                  ? isDark
+                    ? 'bg-white text-black border-white'
+                    : 'bg-[#17171c] text-white border-[#17171c]'
+                  : isDark
+                    ? 'bg-[#1f1f25] text-zinc-300 border-[#27272a] hover:bg-[#27272a]'
+                    : 'bg-[#f4f4f5] text-[#52525b] border-[#e4e4e7] hover:bg-[#eeece7]'
               }`}
               title={isPlayerOpen ? 'Sembunyikan Pemutar Video' : 'Tampilkan Pemutar Video'}
             >
@@ -160,11 +170,11 @@ export function CommandDeck() {
       </div>
 
       {/* Scrollable Command Area */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 pb-24">
         {/* Omni-Input Spotlight Form */}
         <form onSubmit={handleSynthesize} className="space-y-2">
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 text-[#71717a] absolute left-3.5 pointer-events-none" />
+            <Search className={`w-4 h-4 absolute left-3.5 pointer-events-none ${isDark ? 'text-zinc-500' : 'text-[#71717a]'}`} />
             <input
               type="text"
               placeholder="Tempel URL YouTube atau ID video..."
@@ -174,17 +184,21 @@ export function CommandDeck() {
                 if (validationError) setValidationError(null)
               }}
               disabled={isSynthesizing}
-              className={`w-full pl-9 pr-8 py-2.5 bg-[#f9f9fb] border rounded-xl text-xs text-[#18181b] placeholder-[#a1a1aa] focus:outline-none transition-all ${
+              className={`w-full pl-9 pr-8 py-2.5 border rounded-xl text-xs focus:outline-none transition-all ${
                 validationError
                   ? 'border-rose-400 focus:ring-1 focus:ring-rose-400'
-                  : 'border-[#e4e4e7] focus:border-[#17171c] focus:bg-[#ffffff]'
+                  : isDark
+                    ? 'bg-[#1a1a20] border-[#27272a] text-white placeholder-zinc-500 focus:border-[#3f3f46]'
+                    : 'bg-[#f9f9fb] border-[#e4e4e7] text-[#18181b] placeholder-[#a1a1aa] focus:border-[#17171c] focus:bg-[#ffffff]'
               }`}
             />
             {videoUrl && (
               <button
                 type="button"
                 onClick={() => setVideoUrl('')}
-                className="absolute right-2.5 p-1 rounded-md text-[#a1a1aa] hover:text-[#18181b] transition-colors"
+                className={`absolute right-2.5 p-1 rounded-md transition-colors ${
+                  isDark ? 'text-zinc-400 hover:text-white' : 'text-[#a1a1aa] hover:text-[#18181b]'
+                }`}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -205,7 +219,11 @@ export function CommandDeck() {
 
         {/* Mini Video Preview Card */}
         {detectedVideoId && (
-          <div className="border border-[#e4e4e7] bg-[#f9f9fb] rounded-xl p-3 flex gap-3 items-center">
+          <div
+            className={`border rounded-xl p-3 flex gap-3 items-center ${
+              isDark ? 'bg-[#1a1a20] border-[#27272a]' : 'bg-[#f9f9fb] border-[#e4e4e7]'
+            }`}
+          >
             <div className="relative w-20 h-12 bg-black rounded-lg overflow-hidden shrink-0 shadow-xs">
               <img
                 src={`https://img.youtube.com/vi/${detectedVideoId}/hqdefault.jpg`}
@@ -217,17 +235,19 @@ export function CommandDeck() {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#71717a]">
+              <div className={`flex items-center gap-1.5 text-[10px] font-mono ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                 <span>ID: {detectedVideoId}</span>
               </div>
               <a
                 href={`https://www.youtube.com/watch?v=${detectedVideoId}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs font-medium text-[#18181b] hover:underline flex items-center gap-1 mt-0.5 truncate"
+                className={`text-xs font-medium hover:underline flex items-center gap-1 mt-0.5 truncate ${
+                  isDark ? 'text-blue-400' : 'text-[#18181b]'
+                }`}
               >
                 <span>Buka Video Asli</span>
-                <ExternalLink className="w-3 h-3 text-[#71717a]" />
+                <ExternalLink className={`w-3 h-3 ${isDark ? 'text-blue-400' : 'text-[#71717a]'}`} />
               </a>
             </div>
           </div>
@@ -235,7 +255,7 @@ export function CommandDeck() {
 
         {/* Depth Directives (Pills) */}
         <div className="space-y-2">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
+          <div className={`text-[11px] font-mono uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
             Depth Directives
           </div>
           <div className="grid grid-cols-3 gap-1.5">
@@ -249,8 +269,12 @@ export function CommandDeck() {
                   disabled={isSynthesizing}
                   className={`py-2 px-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center ${
                     isSelected
-                      ? 'bg-[#17171c] text-white shadow-xs'
-                      : 'bg-transparent border border-[#e4e4e7] text-[#52525b] hover:border-[#17171c] hover:text-[#18181b]'
+                      ? isDark
+                        ? 'bg-white text-black shadow-xs font-semibold'
+                        : 'bg-[#17171c] text-white shadow-xs'
+                      : isDark
+                        ? 'bg-transparent border border-[#27272a] text-zinc-400 hover:text-white hover:border-[#3f3f46]'
+                        : 'bg-transparent border border-[#e4e4e7] text-[#52525b] hover:border-[#17171c] hover:text-[#18181b]'
                   }`}
                   title={mode.desc}
                 >
@@ -264,7 +288,7 @@ export function CommandDeck() {
 
         {/* Modular Modifiers (Chips) */}
         <div className="space-y-2">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
+          <div className={`text-[11px] font-mono uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
             Modular Modifiers
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -278,8 +302,12 @@ export function CommandDeck() {
                   disabled={isSynthesizing}
                   className={`py-1.5 px-3 rounded-full text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
                     isActive
-                      ? 'bg-[#17171c] text-white border-[#17171c]'
-                      : 'bg-white text-[#71717a] border-[#e4e4e7] hover:text-[#18181b] hover:border-[#d4d4d8]'
+                      ? isDark
+                        ? 'bg-white text-black border-white font-semibold'
+                        : 'bg-[#17171c] text-white border-[#17171c]'
+                      : isDark
+                        ? 'bg-[#1a1a20] text-zinc-400 border-[#27272a] hover:text-white'
+                        : 'bg-white text-[#71717a] border-[#e4e4e7] hover:text-[#18181b] hover:border-[#d4d4d8]'
                   }`}
                 >
                   {mod.icon}
@@ -296,7 +324,9 @@ export function CommandDeck() {
               className={`py-1.5 px-3 rounded-full text-[11px] font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
                 customPromptEnabled
                   ? 'bg-[#ff7759] text-white border-[#ff7759]'
-                  : 'bg-white text-[#71717a] border-[#e4e4e7] hover:text-[#ff7759] hover:border-[#ffad9b]'
+                  : isDark
+                    ? 'bg-[#1a1a20] text-zinc-400 border-[#27272a] hover:text-[#ff7759]'
+                    : 'bg-white text-[#71717a] border-[#e4e4e7] hover:text-[#ff7759] hover:border-[#ffad9b]'
               }`}
             >
               <Plus className="w-3 h-3" />
@@ -313,13 +343,17 @@ export function CommandDeck() {
                 value={config.custom_prompt || ''}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 disabled={isSynthesizing}
-                className="w-full px-3 py-2 bg-[#f9f9fb] border border-[#ffad9b] rounded-lg text-xs text-[#18181b] placeholder-[#a1a1aa] focus:outline-none focus:border-[#ff7759]"
+                className={`w-full px-3 py-2 border rounded-lg text-xs placeholder-[#a1a1aa] focus:outline-none ${
+                  isDark
+                    ? 'bg-[#1a1a20] border-[#ff7759] text-white'
+                    : 'bg-[#f9f9fb] border-[#ffad9b] text-[#18181b] focus:border-[#ff7759]'
+                }`}
               />
             </div>
           )}
         </div>
 
-        {/* Primary Action Button (Near-Black Pill CTA) */}
+        {/* Primary Action Button */}
         <div>
           <button
             type="button"
@@ -328,7 +362,9 @@ export function CommandDeck() {
             className={`w-full py-3 px-6 rounded-full font-medium text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs ${
               isSynthesizing
                 ? 'bg-[#71717a] text-white cursor-wait'
-                : 'bg-[#17171c] hover:bg-black active:scale-[0.99] text-white'
+                : isDark
+                  ? 'bg-white hover:bg-zinc-200 text-black font-semibold'
+                  : 'bg-[#17171c] hover:bg-black text-white'
             }`}
           >
             {isSynthesizing ? (
@@ -345,17 +381,21 @@ export function CommandDeck() {
           </button>
         </div>
 
-        <hr className="border-[#f4f4f5]" />
+        <hr className={isDark ? 'border-[#27272a]' : 'border-[#f4f4f5]'} />
 
         {/* Floating Ask & Jump Console */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-[#71717a]">
-              <MessageSquare className="w-3.5 h-3.5 text-[#18181b]" />
+            <div className={`flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
+              <MessageSquare className={`w-3.5 h-3.5 ${isDark ? 'text-white' : 'text-[#18181b]'}`} />
               <span>Ask & Jump Q&A</span>
             </div>
             {(activeDraft?.video_id || detectedVideoId) && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#f4f4f5] text-[#52525b]">
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                  isDark ? 'bg-[#27272a] text-zinc-300' : 'bg-[#f4f4f5] text-[#52525b]'
+                }`}
+              >
                 {activeDraft?.video_id || detectedVideoId}
               </span>
             )}
@@ -364,23 +404,39 @@ export function CommandDeck() {
           {/* Dialogue Balloons List */}
           <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
             {qaHistory.length === 0 ? (
-              <div className="py-6 text-center text-xs text-[#a1a1aa] border border-dashed border-[#e4e4e7] rounded-xl bg-[#f9f9fb] px-4">
-                Tanyakan bagian tertentu dari materi (misal: &quot;Bagian mana yang bahas rumus X?&quot;)
+              <div
+                className={`py-6 text-center text-xs border border-dashed rounded-xl px-4 ${
+                  isDark
+                    ? 'border-[#27272a] bg-[#1a1a20] text-zinc-500'
+                    : 'border-[#e4e4e7] bg-[#f9f9fb] text-[#a1a1aa]'
+                }`}
+              >
+                Tanyakan bagian tertentu dari materi (misal: "Bagian mana yang bahas rumus X?")
               </div>
             ) : (
               qaHistory.map((item) => (
                 <div key={item.id} className="space-y-1.5 text-xs">
                   {/* User Question */}
                   <div className="flex justify-end">
-                    <div className="bg-[#17171c] text-white px-3 py-2 rounded-2xl rounded-tr-xs max-w-[85%] text-xs">
+                    <div
+                      className={`px-3 py-2 rounded-2xl rounded-tr-xs max-w-[85%] text-xs ${
+                        isDark ? 'bg-zinc-700 text-white' : 'bg-[#17171c] text-white'
+                      }`}
+                    >
                       {item.question}
                     </div>
                   </div>
 
                   {/* Agent Answer */}
                   <div className="flex justify-start">
-                    <div className="bg-[#f4f4f5] border border-[#e4e4e7] text-[#18181b] px-3.5 py-2.5 rounded-2xl rounded-tl-xs max-w-[90%] space-y-1">
-                      <div className="prose prose-slate max-w-none text-xs leading-relaxed prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-code:font-mono prose-code:text-[#17171c] prose-code:bg-white prose-code:px-1 prose-code:py-0.5 prose-code:rounded">
+                    <div
+                      className={`px-3.5 py-2.5 rounded-2xl rounded-tl-xs max-w-[90%] space-y-1 ${
+                        isDark
+                          ? 'bg-[#1f1f25] border border-[#27272a] text-zinc-200'
+                          : 'bg-[#f4f4f5] border border-[#e4e4e7] text-[#18181b]'
+                      }`}
+                    >
+                      <div className="prose prose-slate max-w-none text-xs leading-relaxed dark:prose-invert">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {item.answer}
                         </ReactMarkdown>
@@ -390,7 +446,7 @@ export function CommandDeck() {
                           <button
                             type="button"
                             onClick={() => seekToTimestamp(item.timestamp_reference!)}
-                            className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#edfce9] text-[#003c33] border border-[#b2e5aa] hover:bg-[#d8f9d0] transition-colors cursor-pointer group/jump"
+                            className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#003c33]/50 text-emerald-300 border border-emerald-500/40 hover:bg-[#003c33]/80 transition-colors cursor-pointer group/jump"
                             title="Lompat dan putar video tepat di detik ini"
                           >
                             <Play className="w-2.5 h-2.5 fill-current group-hover/jump:scale-110 transition-transform" />
@@ -413,7 +469,11 @@ export function CommandDeck() {
               value={qaInput}
               onChange={(e) => setQaInput(e.target.value)}
               disabled={!(activeDraft?.video_id || detectedVideoId) || qaMutation.isPending}
-              className="w-full pl-3 pr-9 py-2 bg-[#f9f9fb] border border-[#e4e4e7] rounded-xl text-xs text-[#18181b] placeholder-[#a1a1aa] focus:outline-none focus:border-[#17171c] focus:bg-white transition-all disabled:opacity-50"
+              className={`w-full pl-3 pr-9 py-2 border rounded-xl text-xs transition-all disabled:opacity-50 focus:outline-none ${
+                isDark
+                  ? 'bg-[#1a1a20] border-[#27272a] text-white placeholder-zinc-500 focus:border-[#3f3f46]'
+                  : 'bg-[#f9f9fb] border-[#e4e4e7] text-[#18181b] placeholder-[#a1a1aa] focus:border-[#17171c] focus:bg-white'
+              }`}
             />
             <button
               type="submit"
@@ -422,7 +482,9 @@ export function CommandDeck() {
                 !(activeDraft?.video_id || detectedVideoId) ||
                 qaMutation.isPending
               }
-              className="absolute right-1.5 p-1.5 bg-[#17171c] text-white rounded-lg hover:bg-black disabled:opacity-40 transition-opacity cursor-pointer"
+              className={`absolute right-1.5 p-1.5 rounded-lg transition-opacity cursor-pointer disabled:opacity-40 ${
+                isDark ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#17171c] text-white hover:bg-black'
+              }`}
             >
               {qaMutation.isPending ? (
                 <Loader2 className="w-3 h-3 animate-spin" />

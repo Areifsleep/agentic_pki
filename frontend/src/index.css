@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-canvas: #ffffff;
   --color-mineral: #f9f9fb;
@@ -30,6 +32,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+  }
+
+  .dark body {
+    background-color: #0d0d11;
+    color: #f4f4f5;
   }
 }
 
@@ -65,6 +72,14 @@
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #27272a;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #d4d4d8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
