@@ -1,0 +1,30 @@
+[
+  {
+    "video_id": "gAkwW2tuIqE",
+    "file_path": "DevOps/Docker/production-docker-container-hardening.md",
+    "transcript_path": null,
+    "title": "Production Docker Container Hardening",
+    "category": "DevOps/Docker",
+    "tags": [
+      "devops",
+      "docker",
+      "security"
+    ],
+    "summary": "Best practices keamanan dan optimasi ukuran image Docker multi-stage build untuk produksi.",
+    "modified_at": "2026-10-27 22:06"
+  },
+  {
+    "video_id": "kqtD5dpn9C8",
+    "file_path": "Backend/FastAPI/async-io-and-background-tasks-in-fastapi.md",
+    "transcript_path": null,
+    "title": "Async IO and Background Tasks in FastAPI",
+    "category": "Backend/FastAPI",
+    "tags": [
+      "fastapi",
+      "python",
+      "async"
+    ],
+    "summary": "Panduan arsitektur async IO dan eksekusi background tasks non-blocking pada FastAPI.",
+    "modified_at": "2026-10-27 22:06"
+  }
+]

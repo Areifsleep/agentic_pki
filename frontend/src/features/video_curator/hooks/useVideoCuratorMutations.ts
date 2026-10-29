@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { saveWatchHistoryItem } from '@/lib/utils'
 import type {
   FocusTargetConfig,
   FocusTargetResponse,
@@ -30,6 +31,7 @@ export function useSynthesizeVideoMutation() {
     setSavedVaultInfo,
     setErrorMessage,
     clearQAHistory,
+    videoUrl,
   } = useVideoCuratorStore()
 
   return useMutation({
@@ -44,7 +46,7 @@ export function useSynthesizeVideoMutation() {
       setStatus('PROCESSING')
       setErrorMessage(null)
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setStatus('SUCCESS')
       setActiveDraft(data)
       setActiveNote({
@@ -57,6 +59,16 @@ export function useSynthesizeVideoMutation() {
       setIsSavedToVault(false)
       setSavedVaultInfo(null)
       clearQAHistory()
+
+      // Record in local watch history
+      saveWatchHistoryItem({
+        title: data.video_title,
+        videoUrl: variables.video_url || videoUrl,
+        videoId: data.video_id,
+        category: data.category,
+        notesCount: 1,
+      })
+
       toast.success('Sintesis materi selesai!', {
         description: `Kategori saran: "${data.category}" (${data.execution_time_seconds}s). Siap ditinjau.`,
       })
@@ -72,7 +84,7 @@ export function useSynthesizeVideoMutation() {
 }
 
 export function useSaveVaultMutation() {
-  const { setIsSavedToVault, setSavedVaultInfo, setActiveNote, activeNote } =
+  const { setIsSavedToVault, setSavedVaultInfo, setActiveNote, activeNote, videoUrl } =
     useVideoCuratorStore()
   const queryClient = useQueryClient()
 
@@ -93,6 +105,12 @@ export function useSaveVaultMutation() {
           category: data.category,
           file_path: data.file_path,
           is_vault_file: true,
+        })
+        saveWatchHistoryItem({
+          title: activeNote.title,
+          videoUrl: videoUrl || `https://www.youtube.com/watch?v=${data.file_name.replace(/\.md$/, '')}`,
+          category: data.category,
+          notesCount: 1,
         })
       }
       queryClient.invalidateQueries({ queryKey: ['vault-notes'] })
