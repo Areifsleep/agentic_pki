@@ -15,8 +15,11 @@ import {
   Loader2,
   ArrowRight,
   FolderDown,
+  Download,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
+import { useTheme } from '../hooks/useTheme'
 import {
   useVideoQuizMutation,
   useSaveQuizMutation,
@@ -50,6 +53,7 @@ export function ActiveRecallStudio({
     seekToTimestamp,
   } = useVideoCuratorStore()
 
+  const { isDark } = useTheme()
   const quizMutation = useVideoQuizMutation()
   const saveQuizMutation = useSaveQuizMutation()
 
@@ -98,6 +102,46 @@ export function ActiveRecallStudio({
     [activeQuiz?.questions]
   )
 
+  const handleExportAnkiCSV = () => {
+    if (!questions || questions.length === 0) {
+      toast.error('Tidak ada kartu flashcard untuk diekspor.')
+      return
+    }
+
+    const rows: string[] = [
+      '#separator:tab',
+      '#html:true',
+      '#tags column:3',
+    ]
+
+    questions.forEach((q) => {
+      const frontText = (q.flashcard_front || q.question || '').replaceAll('\t', ' ').replaceAll('\n', '<br>')
+      const tsBadge = q.timestamp_reference ? `<br><small style="color:#10b981;">Timestamp: ${q.timestamp_reference}</small>` : ''
+      const front = `<b>${frontText}</b>${tsBadge}`
+
+      const backAnswer = (q.flashcard_back || (q.options ? q.options[q.correct_answer_index] : '') || '').replaceAll('\t', ' ').replaceAll('\n', '<br>')
+      const expl = (q.explanation || '').replaceAll('\t', ' ').replaceAll('\n', '<br>')
+      const back = `${backAnswer}<br><br><small style="color:#71717a;">${expl}</small>`
+
+      const tagStr = `studytube active_recall ${effectiveVideoId ? `yt_${effectiveVideoId}` : ''}`
+      rows.push(`${front}\t${back}\t${tagStr}`)
+    })
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/tab-separated-values;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `studytube-anki-deck-${effectiveVideoId || 'cards'}.tsv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast.success('Deck Anki berhasil diekspor (.tsv)!', {
+      description: 'Impor berkas ini langsung ke aplikasi Anki via File > Import.',
+    })
+  }
+
   // Calculate score
   const { answeredCount, correctCount } = useMemo(() => {
     let answered = 0
@@ -136,11 +180,11 @@ export function ActiveRecallStudio({
   // State: No video active
   if (!effectiveVideoId && !effectiveContent) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-[#71717a]">
-        <div className="w-12 h-12 rounded-2xl bg-[#eeece7] text-[#17171c] flex items-center justify-center mb-3">
+      <div className={`h-full flex flex-col items-center justify-center p-8 text-center ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${isDark ? 'bg-[#27272a] text-white' : 'bg-[#eeece7] text-[#17171c]'}`}>
           <BrainCircuit className="w-6 h-6" />
         </div>
-        <h3 className="font-semibold text-sm text-[#18181b] mb-1">
+        <h3 className={`font-semibold text-sm mb-1 ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
           Belum Ada Video yang Dipilih
         </h3>
         <p className="text-xs max-w-sm">
@@ -154,23 +198,23 @@ export function ActiveRecallStudio({
   if (!activeQuiz || questions.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto">
-        <div className="w-14 h-14 rounded-2xl bg-[#17171c] text-white flex items-center justify-center mb-4 shadow-sm">
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm ${isDark ? 'bg-white text-black' : 'bg-[#17171c] text-white'}`}>
           <BrainCircuit className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-semibold text-[#18181b] mb-1">
+        <h3 className={`text-base font-semibold mb-1 ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
           Active Recall & Flashcards Studio
         </h3>
-        <p className="text-xs text-[#71717a] leading-relaxed mb-6">
+        <p className={`text-xs leading-relaxed mb-6 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
           {isVaultHistory
             ? 'Catatan arsip ini belum memiliki kuis Active Recall. AI akan membaca isi catatan dan merumuskan kuis konseptual serta kartu hafalan mental model.'
             : 'Tingkatkan pemahaman belajar mandiri. AI akan mengevaluasi transkrip video ini dan merumuskan kuis konseptual serta kartu hafalan mental model lengkap dengan rujukan segmen video.'}
         </p>
 
         {/* Question Count Selector */}
-        <div className="w-full bg-white p-3 rounded-xl border border-[#e4e4e7] mb-5 space-y-2">
-          <div className="flex items-center justify-between text-xs text-[#52525b]">
+        <div className={`w-full p-3 rounded-xl border mb-5 space-y-2 ${isDark ? 'bg-[#17171c] border-[#27272a]' : 'bg-white border-[#e4e4e7]'}`}>
+          <div className={`flex items-center justify-between text-xs ${isDark ? 'text-zinc-400' : 'text-[#52525b]'}`}>
             <span className="font-medium">Jumlah Pertanyaan:</span>
-            <span className="font-mono font-semibold text-[#17171c]">
+            <span className={`font-mono font-semibold ${isDark ? 'text-emerald-400' : 'text-[#17171c]'}`}>
               {numQuestions} Konsep
             </span>
           </div>
@@ -182,8 +226,12 @@ export function ActiveRecallStudio({
                 onClick={() => setNumQuestions(num)}
                 className={`px-3 py-1 text-xs rounded-lg font-medium transition-all cursor-pointer ${
                   numQuestions === num
-                    ? 'bg-[#17171c] text-white shadow-xs'
-                    : 'bg-[#f4f4f5] text-[#52525b] hover:bg-[#e4e4e7]'
+                    ? isDark
+                      ? 'bg-white text-black font-semibold shadow-xs'
+                      : 'bg-[#17171c] text-white shadow-xs'
+                    : isDark
+                      ? 'bg-[#27272a] text-zinc-300 hover:bg-[#3f3f46]'
+                      : 'bg-[#f4f4f5] text-[#52525b] hover:bg-[#e4e4e7]'
                 }`}
               >
                 {num} Soal
@@ -197,7 +245,11 @@ export function ActiveRecallStudio({
           type="button"
           onClick={handleGenerate}
           disabled={quizMutation.isPending}
-          className="w-full py-2.5 px-4 bg-[#17171c] hover:bg-[#27272a] text-white text-xs font-medium rounded-full shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+          className={`w-full py-2.5 px-4 text-xs font-medium rounded-full shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 ${
+            isDark
+              ? 'bg-white hover:bg-zinc-200 text-black font-semibold'
+              : 'bg-[#17171c] hover:bg-[#27272a] text-white'
+          }`}
         >
           {quizMutation.isPending ? (
             <>
@@ -206,7 +258,7 @@ export function ActiveRecallStudio({
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <Sparkles className="w-4 h-4 text-emerald-500" />
               <span>Susun Kuis & Flashcards AI</span>
             </>
           )}
@@ -217,32 +269,36 @@ export function ActiveRecallStudio({
 
   // State: Quiz generated and active!
   return (
-    <div className="h-full flex flex-col bg-[#fdfdfd] overflow-hidden">
+    <div className={`h-full flex flex-col overflow-hidden transition-colors ${isDark ? 'bg-[#0d0d11]' : 'bg-[#fdfdfd]'}`}>
       {/* Studio Header Bar */}
-      <div className="px-6 py-3.5 border-b border-[#e4e4e7] bg-white flex items-center justify-between shrink-0">
+      <div className={`px-6 py-3.5 border-b flex items-center justify-between shrink-0 ${isDark ? 'bg-[#141419] border-[#27272a]' : 'bg-white border-[#e4e4e7]'}`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#17171c] text-white flex items-center justify-center shadow-xs">
-            <BrainCircuit className="w-4 h-4 text-emerald-400" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-xs border border-emerald-500/30">
+            <BrainCircuit className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-xs font-semibold text-[#18181b] tracking-tight">
+            <h2 className={`text-xs font-semibold tracking-tight ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
               Active Recall Studio
             </h2>
-            <p className="text-[11px] text-[#71717a]">
+            <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
               {questions.length} Konsep Teruji • Terhubung ke YouTube Player
             </p>
           </div>
         </div>
 
         {/* Sub-tab Pill Switcher */}
-        <div className="flex items-center gap-1 bg-[#f4f4f5] p-0.5 rounded-lg border border-[#e4e4e7]">
+        <div className={`flex items-center gap-1 p-0.5 rounded-lg border ${isDark ? 'bg-[#17171c] border-[#27272a]' : 'bg-[#f4f4f5] border-[#e4e4e7]'}`}>
           <button
             type="button"
             onClick={() => setActiveMode('quiz')}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
               activeMode === 'quiz'
-                ? 'bg-white text-[#18181b] shadow-xs'
-                : 'text-[#71717a] hover:text-[#18181b]'
+                ? isDark
+                  ? 'bg-white text-black font-semibold shadow-xs'
+                  : 'bg-white text-[#18181b] shadow-xs'
+                : isDark
+                  ? 'text-zinc-400 hover:text-white'
+                  : 'text-[#71717a] hover:text-[#18181b]'
             }`}
           >
             <HelpCircle className="w-3 h-3" />
@@ -253,8 +309,12 @@ export function ActiveRecallStudio({
             onClick={() => setActiveMode('flashcards')}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
               activeMode === 'flashcards'
-                ? 'bg-white text-[#18181b] shadow-xs'
-                : 'text-[#71717a] hover:text-[#18181b]'
+                ? isDark
+                  ? 'bg-white text-black font-semibold shadow-xs'
+                  : 'bg-white text-[#18181b] shadow-xs'
+                : isDark
+                  ? 'text-zinc-400 hover:text-white'
+                  : 'text-[#71717a] hover:text-[#18181b]'
             }`}
           >
             <Layers className="w-3 h-3" />
@@ -262,14 +322,33 @@ export function ActiveRecallStudio({
           </button>
         </div>
 
-        {/* Action Buttons: Save Quiz & Regenerate */}
+        {/* Action Buttons: Export Anki, Save Quiz & Regenerate */}
         <div className="flex items-center gap-2">
+          {/* Anki TSV/CSV Export Button */}
+          <button
+            type="button"
+            onClick={handleExportAnkiCSV}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer ${
+              isDark
+                ? 'border border-[#27272a] text-zinc-300 hover:bg-[#27272a] hover:text-white'
+                : 'border border-[#e4e4e7] text-[#18181b] hover:bg-[#f4f4f5]'
+            }`}
+            title="Ekspor flashcards ke format Anki TSV/CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="hidden sm:inline">Export Anki (.tsv)</span>
+          </button>
+
           {/* Save Quiz to Vault Button */}
           <button
             type="button"
             onClick={handleSaveQuizToVault}
             disabled={saveQuizMutation.isPending}
-            className="px-3 py-1.5 bg-[#17171c] hover:bg-black text-white text-xs font-medium rounded-full shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            className={`px-3 py-1.5 text-xs font-medium rounded-full shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 ${
+              isDark
+                ? 'bg-white hover:bg-zinc-200 text-black font-semibold'
+                : 'bg-[#17171c] hover:bg-black text-white'
+            }`}
             title="Simpan kuis dan flashcard ini ke Obsidian Vault"
           >
             {saveQuizMutation.isPending ? (
@@ -279,7 +358,7 @@ export function ActiveRecallStudio({
               </>
             ) : (
               <>
-                <FolderDown className="w-3.5 h-3.5 text-emerald-400" />
+                <FolderDown className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Simpan Kuis</span>
               </>
             )}
@@ -290,7 +369,11 @@ export function ActiveRecallStudio({
             type="button"
             onClick={handleGenerate}
             disabled={quizMutation.isPending}
-            className="text-xs text-[#71717a] hover:text-[#18181b] flex items-center gap-1 p-1.5 rounded-md hover:bg-[#f4f4f5] transition-colors cursor-pointer"
+            className={`text-xs flex items-center gap-1 p-1.5 rounded-md transition-colors cursor-pointer ${
+              isDark
+                ? 'text-zinc-400 hover:text-white hover:bg-[#27272a]'
+                : 'text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5]'
+            }`}
             title="Acak & Susun Ulang Pertanyaan Kuis"
           >
             <RotateCw
@@ -305,14 +388,14 @@ export function ActiveRecallStudio({
       {activeMode === 'quiz' && (
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {/* Score Banner */}
-          <div className="bg-[#fcfbf9] border border-[#eeece7] rounded-xl p-3.5 flex items-center justify-between">
+          <div className={`border rounded-xl p-3.5 flex items-center justify-between ${isDark ? 'bg-[#17171c] border-[#27272a]' : 'bg-[#fcfbf9] border-[#eeece7]'}`}>
             <div className="flex items-center gap-2.5">
               <Award className="w-5 h-5 text-amber-500" />
               <div>
-                <span className="text-xs font-semibold text-[#18181b]">
+                <span className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
                   Skor Anda: {correctCount} / {questions.length} Benar
                 </span>
-                <p className="text-[11px] text-[#71717a]">
+                <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
                   {answeredCount === questions.length
                     ? 'Seluruh pertanyaan telah diselesaikan!'
                     : `${questions.length - answeredCount} pertanyaan tersisa.`}
@@ -323,7 +406,7 @@ export function ActiveRecallStudio({
               <button
                 type="button"
                 onClick={resetQuizAnswers}
-                className="text-[11px] font-medium text-[#71717a] hover:text-[#18181b] underline cursor-pointer"
+                className={`text-[11px] font-medium underline cursor-pointer ${isDark ? 'text-zinc-400 hover:text-white' : 'text-[#71717a] hover:text-[#18181b]'}`}
               >
                 Ulangi Kuis
               </button>
@@ -340,15 +423,17 @@ export function ActiveRecallStudio({
               return (
                 <div
                   key={q.id}
-                  className="bg-white rounded-xl border border-[#e4e4e7] p-5 shadow-xs space-y-4"
+                  className={`rounded-xl border p-5 shadow-xs space-y-4 ${isDark ? 'bg-[#17171c] border-[#27272a]' : 'bg-white border-[#e4e4e7]'}`}
                 >
                   {/* Question Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-[#eeece7] text-[#18181b] text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${
+                        isDark ? 'bg-[#27272a] text-white' : 'bg-[#eeece7] text-[#18181b]'
+                      }`}>
                         {qIndex + 1}
                       </span>
-                      <h4 className="text-xs font-semibold text-[#18181b] leading-relaxed">
+                      <h4 className={`text-xs font-semibold leading-relaxed ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
                         {q.question}
                       </h4>
                     </div>
@@ -358,7 +443,7 @@ export function ActiveRecallStudio({
                       <button
                         type="button"
                         onClick={() => seekToTimestamp(q.timestamp_reference!)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#edfce9] text-[#003c33] text-[11px] font-mono font-medium hover:bg-[#d8f9d0] transition-colors border border-[#b2e5aa] shrink-0 cursor-pointer shadow-2xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#003c33]/40 text-emerald-400 text-[11px] font-mono font-medium hover:bg-[#003c33]/70 transition-colors border border-emerald-500/30 shrink-0 cursor-pointer shadow-2xs"
                         title="Tonton penjelasan materi ini di YouTube player"
                       >
                         <Play className="w-2.5 h-2.5 fill-current" />
@@ -373,19 +458,21 @@ export function ActiveRecallStudio({
                       const isOptionSelected = selectedIdx === optIdx
                       const isOptionCorrect = q.correct_answer_index === optIdx
 
-                      let optionStyle =
-                        'bg-[#fdfdfd] border-[#e4e4e7] text-[#27272a] hover:bg-[#f4f4f5] hover:border-[#d4d4d8]'
+                      let optionStyle = isDark
+                        ? 'bg-[#121216] border-[#27272a] text-zinc-300 hover:bg-[#1f1f25] hover:border-zinc-700'
+                        : 'bg-[#fdfdfd] border-[#e4e4e7] text-[#27272a] hover:bg-[#f4f4f5] hover:border-[#d4d4d8]'
 
                       if (hasAnswered) {
                         if (isOptionCorrect) {
                           optionStyle =
-                            'bg-[#edfce9] border-[#a3e635] text-[#003c33] font-medium'
+                            'bg-[#003c33]/50 border-emerald-500/50 text-emerald-300 font-medium'
                         } else if (isOptionSelected && !isCorrect) {
                           optionStyle =
-                            'bg-[#fee2e2] border-[#f87171] text-[#991b1b]'
+                            'bg-rose-950/50 border-rose-500/50 text-rose-300'
                         } else {
-                          optionStyle =
-                            'bg-[#fafafa] border-[#e4e4e7] text-[#a1a1aa] opacity-60'
+                          optionStyle = isDark
+                            ? 'bg-[#121216] border-[#27272a] text-zinc-600 opacity-50'
+                            : 'bg-[#fafafa] border-[#e4e4e7] text-[#a1a1aa] opacity-60'
                         }
                       }
 
@@ -398,17 +485,19 @@ export function ActiveRecallStudio({
                           className={`w-full text-left px-3.5 py-2.5 rounded-lg border text-xs transition-all flex items-center justify-between gap-3 cursor-pointer disabled:cursor-default ${optionStyle}`}
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-md bg-black/5 flex items-center justify-center font-mono text-[10px] font-semibold shrink-0">
+                            <span className={`w-5 h-5 rounded-md flex items-center justify-center font-mono text-[10px] font-semibold shrink-0 ${
+                              isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-black/5 text-black'
+                            }`}>
                               {String.fromCharCode(65 + optIdx)}
                             </span>
                             <span className="leading-snug">{opt}</span>
                           </div>
 
                           {hasAnswered && isOptionCorrect && (
-                            <CheckCircle2 className="w-4 h-4 text-[#10b981] shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                           )}
                           {hasAnswered && isOptionSelected && !isCorrect && (
-                            <XCircle className="w-4 h-4 text-[#ef4444] shrink-0" />
+                            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
                           )}
                         </button>
                       )
@@ -420,19 +509,19 @@ export function ActiveRecallStudio({
                     <div
                       className={`p-3.5 rounded-lg text-xs leading-relaxed space-y-1.5 ${
                         isCorrect
-                          ? 'bg-[#edfce9]/60 border border-[#b2e5aa]/60 text-[#003c33]'
-                          : 'bg-[#fff7ed] border border-[#fed7aa] text-[#9a3412]'
+                          ? 'bg-[#003c33]/40 border border-emerald-500/30 text-emerald-300'
+                          : 'bg-amber-950/40 border border-amber-600/30 text-amber-300'
                       }`}
                     >
                       <div className="flex items-center gap-1.5 font-semibold text-[11px]">
                         {isCorrect ? (
                           <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                             <span>Jawaban Benar!</span>
                           </>
                         ) : (
                           <>
-                            <HelpCircle className="w-3.5 h-3.5 text-[#f97316]" />
+                            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
                             <span>Penjelasan Konsep Kunci:</span>
                           </>
                         )}
@@ -445,7 +534,7 @@ export function ActiveRecallStudio({
                           <button
                             type="button"
                             onClick={() => seekToTimestamp(q.timestamp_reference!)}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-[#c2410c] hover:underline cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:underline cursor-pointer"
                           >
                             <Play className="w-2.5 h-2.5 fill-current" />
                             <span>Tonton bagian {q.timestamp_reference} untuk mengulas materi</span>
@@ -465,14 +554,16 @@ export function ActiveRecallStudio({
       {activeMode === 'flashcards' && activeFlashcard && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
           {/* Card Counter & Shuffle */}
-          <div className="w-full max-w-lg flex items-center justify-between text-xs text-[#71717a]">
+          <div className={`w-full max-w-lg flex items-center justify-between text-xs ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
             <span className="font-mono font-medium">
               Kartu {currentCardIndex + 1} dari {questions.length}
             </span>
             <button
               type="button"
               onClick={handleShuffleCards}
-              className="inline-flex items-center gap-1 hover:text-[#18181b] transition-colors cursor-pointer"
+              className={`inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                isDark ? 'hover:text-white' : 'hover:text-[#18181b]'
+              }`}
             >
               <Shuffle className="w-3 h-3" />
               <span>Acak Urutan</span>
@@ -486,9 +577,11 @@ export function ActiveRecallStudio({
             title="Klik kartu untuk membalik (Active Recall)"
           >
             <div
-              className={`relative w-full h-full rounded-2xl border border-[#e4e4e7] bg-white p-6 shadow-md transition-all duration-500 [transform-style:preserve-3d] flex flex-col justify-between select-none ${
-                isFlipped ? '[transform:rotateY(180deg)] bg-[#fcfbf9]' : ''
-              }`}
+              className={`relative w-full h-full rounded-2xl border p-6 shadow-md transition-all duration-500 [transform-style:preserve-3d] flex flex-col justify-between select-none ${
+                isDark
+                  ? 'border-[#27272a] bg-[#17171c]'
+                  : 'border-[#e4e4e7] bg-white'
+              } ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}
             >
               {/* Front Side */}
               <div
@@ -496,22 +589,22 @@ export function ActiveRecallStudio({
                   isFlipped ? 'hidden' : 'flex'
                 }`}
               >
-                <div className="flex items-center justify-between text-[11px] text-[#71717a] border-b border-[#f4f4f5] pb-2.5">
-                  <span className="font-mono font-semibold uppercase tracking-wider text-[#17171c]">
+                <div className={`flex items-center justify-between text-[11px] border-b pb-2.5 ${isDark ? 'border-[#27272a] text-zinc-400' : 'border-[#f4f4f5] text-[#71717a]'}`}>
+                  <span className={`font-mono font-semibold uppercase tracking-wider ${isDark ? 'text-white' : 'text-[#17171c]'}`}>
                     Tantangan Konsep
                   </span>
-                  <span className="text-[10px] bg-[#eeece7] px-2 py-0.5 rounded-full text-[#17171c]">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-[#27272a] text-zinc-200' : 'bg-[#eeece7] text-[#17171c]'}`}>
                     Tanya & Ingat
                   </span>
                 </div>
 
                 <div className="py-4">
-                  <h3 className="text-base font-semibold text-[#18181b] leading-snug">
+                  <h3 className={`text-base font-semibold leading-snug ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
                     {activeFlashcard.flashcard_front}
                   </h3>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-[#a1a1aa] pt-2 border-t border-[#f4f4f5]">
+                <div className={`flex items-center justify-between text-[11px] pt-2 border-t ${isDark ? 'border-[#27272a] text-zinc-500' : 'border-[#f4f4f5] text-[#a1a1aa]'}`}>
                   <span>Klik untuk melihat jawaban & mental model</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
@@ -523,8 +616,8 @@ export function ActiveRecallStudio({
                   isFlipped ? 'flex [transform:rotateY(180deg)]' : 'hidden'
                 }`}
               >
-                <div className="flex items-center justify-between text-[11px] text-[#71717a] border-b border-[#eeece7] pb-2.5">
-                  <span className="font-mono font-semibold uppercase tracking-wider text-emerald-700">
+                <div className={`flex items-center justify-between text-[11px] border-b pb-2.5 ${isDark ? 'border-[#27272a] text-zinc-400' : 'border-[#eeece7] text-[#71717a]'}`}>
+                  <span className="font-mono font-semibold uppercase tracking-wider text-emerald-500">
                     Mental Model & Solusi
                   </span>
                   {activeFlashcard.timestamp_reference && (
@@ -534,7 +627,7 @@ export function ActiveRecallStudio({
                         e.stopPropagation()
                         seekToTimestamp(activeFlashcard.timestamp_reference!)
                       }}
-                      className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#edfce9] text-[#003c33] border border-[#b2e5aa] hover:bg-[#d8f9d0] transition-colors"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#003c33]/40 text-emerald-400 border border-emerald-500/30 hover:bg-[#003c33]/70 transition-colors"
                     >
                       <Play className="w-2.5 h-2.5 fill-current" />
                       <span>{activeFlashcard.timestamp_reference}</span>
@@ -543,15 +636,15 @@ export function ActiveRecallStudio({
                 </div>
 
                 <div className="py-4 space-y-2 overflow-y-auto">
-                  <p className="text-sm font-semibold text-[#18181b] leading-relaxed">
+                  <p className={`text-sm font-semibold leading-relaxed ${isDark ? 'text-white' : 'text-[#18181b]'}`}>
                     {activeFlashcard.flashcard_back}
                   </p>
-                  <p className="text-xs text-[#52525b] leading-relaxed border-t border-[#f4f4f5] pt-2">
+                  <p className={`text-xs leading-relaxed border-t pt-2 ${isDark ? 'border-[#27272a] text-zinc-400' : 'border-[#f4f4f5] text-[#52525b]'}`}>
                     {activeFlashcard.explanation}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-[#a1a1aa] pt-2 border-t border-[#eeece7]">
+                <div className={`flex items-center justify-between text-[11px] pt-2 border-t ${isDark ? 'border-[#27272a] text-zinc-500' : 'border-[#eeece7] text-[#a1a1aa]'}`}>
                   <span>Klik lagi untuk membalik kartu</span>
                   <RotateCw className="w-3 h-3" />
                 </div>
@@ -564,7 +657,11 @@ export function ActiveRecallStudio({
             <button
               type="button"
               onClick={handlePrevCard}
-              className="w-10 h-10 rounded-full bg-white border border-[#e4e4e7] hover:bg-[#f4f4f5] flex items-center justify-center text-[#18181b] shadow-xs transition-colors cursor-pointer"
+              className={`w-10 h-10 rounded-full border flex items-center justify-center shadow-xs transition-colors cursor-pointer ${
+                isDark
+                  ? 'bg-[#17171c] border-[#27272a] text-white hover:bg-[#27272a]'
+                  : 'bg-white border-[#e4e4e7] hover:bg-[#f4f4f5] text-[#18181b]'
+              }`}
               title="Kartu Sebelumnya"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -572,14 +669,22 @@ export function ActiveRecallStudio({
             <button
               type="button"
               onClick={() => setIsFlipped(!isFlipped)}
-              className="px-5 py-2 bg-[#17171c] hover:bg-[#27272a] text-white text-xs font-medium rounded-full shadow-xs transition-colors cursor-pointer"
+              className={`px-5 py-2 text-xs font-medium rounded-full shadow-xs transition-colors cursor-pointer ${
+                isDark
+                  ? 'bg-white hover:bg-zinc-200 text-black font-semibold'
+                  : 'bg-[#17171c] hover:bg-[#27272a] text-white'
+              }`}
             >
               {isFlipped ? 'Tutup Jawaban' : 'Buka Jawaban'}
             </button>
             <button
               type="button"
               onClick={handleNextCard}
-              className="w-10 h-10 rounded-full bg-white border border-[#e4e4e7] hover:bg-[#f4f4f5] flex items-center justify-center text-[#18181b] shadow-xs transition-colors cursor-pointer"
+              className={`w-10 h-10 rounded-full border flex items-center justify-center shadow-xs transition-colors cursor-pointer ${
+                isDark
+                  ? 'bg-[#17171c] border-[#27272a] text-white hover:bg-[#27272a]'
+                  : 'bg-white border-[#e4e4e7] hover:bg-[#f4f4f5] text-[#18181b]'
+              }`}
               title="Kartu Berikutnya"
             >
               <ChevronRight className="w-5 h-5" />
