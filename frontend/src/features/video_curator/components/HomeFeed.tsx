@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Play,
   Bookmark,
@@ -42,6 +42,7 @@ export function HomeFeed() {
   const discoverRadarMutation = useDiscoverRadarMutation()
 
   const [savedVideos, setSavedVideos] = useState<Record<string, boolean>>({})
+  const hasTriggeredInitialRef = useRef(false)
 
   // Focus topic preview
   const activeFocusPillars =
@@ -51,7 +52,13 @@ export function HomeFeed() {
 
   // Trigger automatic initial YouTube discovery based on focus topics if feed is empty
   useEffect(() => {
-    if (radarVideos.length === 0 && !discoverRadarMutation.isPending && !isRadarLoading) {
+    if (
+      !hasTriggeredInitialRef.current &&
+      radarVideos.length === 0 &&
+      !discoverRadarMutation.isPending &&
+      !isRadarLoading
+    ) {
+      hasTriggeredInitialRef.current = true
       discoverRadarMutation.mutate({})
     }
   }, []) // run once on mount
@@ -289,7 +296,7 @@ export function HomeFeed() {
                 onClick={() => discoverRadarMutation.mutate({ query: 'Python Architecture and Modern Engineering' })}
                 className="px-4 py-2 rounded-xl bg-emerald-500 text-black text-xs font-semibold cursor-pointer"
               >
-                Cari Topik Rekayasa Perangkat Lunak
+                Mulai Menjelajah
               </button>
             </div>
           </div>

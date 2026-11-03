@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +24,7 @@ import { useTheme } from '../hooks/useTheme'
 import {
   useSynthesizeVideoMutation,
   useVideoQAMutation,
+  useDiscoverRadarMutation,
 } from '../hooks/useVideoCuratorMutations'
 import { videoFormSchema, type SummaryMode } from '../types'
 import { EmbeddedVideoCompanion } from './EmbeddedVideoCompanion'
@@ -45,6 +47,9 @@ export function CommandDeck() {
     togglePlayer,
     seekToTimestamp,
     isFloatingPlayer,
+    setActiveStage,
+    setOmniSearchQuery,
+    setRadarQuery,
   } = useVideoCuratorStore()
 
   const { isDark } = useTheme()
@@ -53,6 +58,7 @@ export function CommandDeck() {
 
   const synthesizeMutation = useSynthesizeVideoMutation()
   const qaMutation = useVideoQAMutation()
+  const discoverRadarMutation = useDiscoverRadarMutation()
 
   const isSynthesizing = status === 'PROCESSING' || synthesizeMutation.isPending
 
@@ -103,16 +109,23 @@ export function CommandDeck() {
 
   const handleSynthesize = (e: React.FormEvent) => {
     e.preventDefault()
+    const trimmed = videoUrl.trim()
+    if (!trimmed) return
 
-    const parseResult = videoFormSchema.safeParse({ video_url: videoUrl })
+    const parseResult = videoFormSchema.safeParse({ video_url: trimmed })
     if (!parseResult.success) {
-      setValidationError(parseResult.error.issues[0]?.message || 'URL YouTube tidak valid.')
+      setValidationError(null)
+      setOmniSearchQuery(trimmed)
+      setRadarQuery(trimmed)
+      setActiveStage('home')
+      discoverRadarMutation.mutate({ query: trimmed })
+      toast.info(`Mencari video "${trimmed}" di YouTube Radar...`)
       return
     }
 
     setValidationError(null)
     synthesizeMutation.mutate({
-      video_url: videoUrl.trim(),
+      video_url: trimmed,
       config,
     })
   }
@@ -177,7 +190,7 @@ export function CommandDeck() {
             <Search className={`w-4 h-4 absolute left-3.5 pointer-events-none ${isDark ? 'text-zinc-500' : 'text-[#71717a]'}`} />
             <input
               type="text"
-              placeholder="Tempel URL YouTube atau ID video..."
+              placeholder="Tempel URL YouTube, ID, atau nama kreator/topik..."
               value={videoUrl}
               onChange={(e) => {
                 setVideoUrl(e.target.value)

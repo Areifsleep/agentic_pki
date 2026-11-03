@@ -228,6 +228,7 @@ export function useDiscoverRadarMutation() {
     onError: (error: Error) => {
       setIsRadarLoading(false)
       toast.error('Gagal menemukan rekomendasi video', {
+        id: 'radar-discover-toast',
         description: error.message,
       })
     },
