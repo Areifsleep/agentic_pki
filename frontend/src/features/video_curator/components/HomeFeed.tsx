@@ -101,16 +101,18 @@ export function HomeFeed() {
   }
 
   // Display feed filtering
-  const displayFeed = radarVideos.filter((video) => {
-    if (!omniSearchQuery.trim()) return true
-    const q = omniSearchQuery.toLowerCase()
-    return (
-      video.title.toLowerCase().includes(q) ||
-      video.channel.toLowerCase().includes(q) ||
-      video.why_you_care.toLowerCase().includes(q) ||
-      video.topic_tag.toLowerCase().includes(q)
-    )
-  })
+  // const displayFeed = radarVideos.filter((video) => {
+  //   if (!omniSearchQuery.trim()) return true
+  //   const q = omniSearchQuery.toLowerCase()
+  //   return (
+  //     video.title.toLowerCase().includes(q) ||
+  //     video.channel.toLowerCase().includes(q) ||
+  //     video.why_you_care.toLowerCase().includes(q) ||
+  //     video.topic_tag.toLowerCase().includes(q)
+  //   )
+  // })
+
+  const displayFeed = radarVideos;
 
   const isLoading = isRadarLoading || discoverRadarMutation.isPending
 
