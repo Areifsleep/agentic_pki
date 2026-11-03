@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import React, { useState } from 'react'
 import {
   X,
@@ -12,7 +13,8 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
-import { useSynthesizeVideoMutation } from '../hooks/useVideoCuratorMutations'
+import { useSynthesizeVideoMutation,
+  useDiscoverRadarMutation } from '../hooks/useVideoCuratorMutations'
 import { useTheme } from '../hooks/useTheme'
 import { videoFormSchema, type SummaryMode } from '../types'
 
@@ -30,6 +32,8 @@ export function AddUrlModal() {
     setCustomPrompt,
     status,
     setActiveStage,
+    setOmniSearchQuery,
+    setRadarQuery,
   } = useVideoCuratorStore()
 
   const { isDark } = useTheme()
@@ -38,6 +42,7 @@ export function AddUrlModal() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const synthesizeMutation = useSynthesizeVideoMutation()
+  const discoverRadarMutation = useDiscoverRadarMutation()
   const isSynthesizing = status === 'PROCESSING' || synthesizeMutation.isPending
 
   if (!isAddUrlOpen) return null
@@ -52,19 +57,26 @@ export function AddUrlModal() {
   const handleSynthesize = (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg(null)
+    const trimmed = inputUrl.trim()
+    if (!trimmed) return
 
-    const parseResult = videoFormSchema.safeParse({ video_url: inputUrl.trim() })
+    const parseResult = videoFormSchema.safeParse({ video_url: trimmed })
     if (!parseResult.success) {
-      setErrorMsg(parseResult.error.issues[0]?.message || 'URL YouTube tidak valid.')
+      setOmniSearchQuery(trimmed)
+      setRadarQuery(trimmed)
+      setIsAddUrlOpen(false)
+      setActiveStage('home')
+      discoverRadarMutation.mutate({ query: trimmed })
+      toast.info(`Mencari video "${trimmed}" di YouTube Radar...`)
       return
     }
 
-    setVideoUrl(inputUrl.trim())
+    setVideoUrl(trimmed)
     setIsAddUrlOpen(false)
     setActiveStage('curate')
 
     synthesizeMutation.mutate({
-      video_url: inputUrl.trim(),
+      video_url: trimmed,
       config,
     })
   }
@@ -183,7 +195,7 @@ export function AddUrlModal() {
                 setInputUrl(e.target.value)
                 setErrorMsg(null)
               }}
-              placeholder="https://www.youtube.com/watch?v=... atau https://youtu.be/..."
+              placeholder="https://www.youtube.com/watch?v=... atau nama kreator/topik"
               className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono transition-all focus:outline-none ${
                 isDark
                   ? 'bg-[#121216] border-[#27272a] text-white placeholder-zinc-500 focus:border-[#3f3f46]'

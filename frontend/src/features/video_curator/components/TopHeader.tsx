@@ -1,21 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Menu,
+  Play,
   Search,
   Plus,
-  Bell,
-  Play,
-  Command,
-  Sun,
   Moon,
-  Sparkles,
+  Sun,
+  Bell,
   CheckCircle2,
-  HardDrive,
-  Settings as SettingsIcon,
+  ExternalLink,
+  Command,
   X,
   Loader2,
+  Sparkles,
+  Layers,
+  Settings as SettingsIcon,
+  HelpCircle,
+  FileText,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useTheme } from '../hooks/useTheme'
 import {
@@ -72,6 +74,21 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Keyboard shortcut Ctrl+K / Cmd+K to focus search bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        const searchInput = document.querySelector<HTMLInputElement>(
+          'input[placeholder^="Search any YouTube"]'
+        )
+        searchInput?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   const handleSidebarClick = () => {
     if (onToggleSidebar) {
       onToggleSidebar()
@@ -80,36 +97,35 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
     }
   }
 
+  // Dual-purpose search submission:
+  // 1. If it looks like a YouTube URL or Video ID -> synthesize directly in Command Deck
+  // 2. Otherwise -> search YouTube via Radar
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmed = localSearch.trim()
-    if (!trimmed) return
+    const query = localSearch.trim()
+    if (!query) return
 
-    // 1. Detect direct YouTube URL or raw 11-char ID
-    const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
-    const rawIdRegex = /^[a-zA-Z0-9_-]{11}$/
-    const ytMatch = trimmed.match(ytRegex)
-    const rawMatch = trimmed.match(rawIdRegex)
+    setOmniSearchQuery(query)
 
-    if (ytMatch || rawMatch) {
-      const vid = ytMatch ? ytMatch[1] : trimmed
-      const fullUrl = `https://www.youtube.com/watch?v=${vid}`
+    const isYouTubeUrl =
+      /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i.test(query)
+    const isRawVideoId = /^[a-zA-Z0-9_-]{11}$/.test(query)
+
+    if (isYouTubeUrl || isRawVideoId) {
+      const fullUrl = isYouTubeUrl
+        ? query
+        : `https://www.youtube.com/watch?v=${query}`
       setVideoUrl(fullUrl)
       setActiveStage('curate')
       synthesizeMutation.mutate({
         video_url: fullUrl,
         config,
       })
-      toast.info(`Membuka dan menyintesis materi video YouTube: ${vid}`)
-      return
-    }
-
-    // 2. Execute live YouTube discovery search
-    setOmniSearchQuery(trimmed)
-    setRadarQuery(trimmed)
-    discoverRadarMutation.mutate({ query: trimmed })
-    if (activeStage !== 'home' && activeStage !== 'radar') {
+    } else {
+      // General YouTube Topic Radar Query
+      setRadarQuery(query)
       setActiveStage('home')
+      discoverRadarMutation.mutate({ query })
     }
   }
 
@@ -120,14 +136,14 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
 
   return (
     <header
-      className={`h-14 border-b px-4 flex items-center justify-between select-none z-30 transition-colors shrink-0 ${
+      className={`h-14 border-b px-4 flex items-center justify-between select-none z-30 transition-colors shrink-0 gap-4 ${
         isDark
           ? 'bg-[#0d0d11] border-[#27272a] text-[#f4f4f5]'
           : 'bg-[#ffffff] border-[#e4e4e7] text-[#18181b]'
       }`}
     >
-      {/* Left: Hamburger & Brand */}
-      <div className="flex items-center gap-3">
+      {/* Left: Hamburger, Brand, Command Deck & Agent Synced */}
+      <div className="flex items-center gap-3 shrink-0">
         <button
           type="button"
           onClick={handleSidebarClick}
@@ -195,10 +211,10 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
         </div>
       </div>
 
-      {/* Center: Omni Search Bar (Supports any YouTube query or URL) */}
+      {/* Center: Omni Search Bar (Fills available empty space) */}
       <form
         onSubmit={handleSearchSubmit}
-        className="hidden md:flex items-center max-w-md lg:max-w-xl w-full mx-4"
+        className="hidden md:flex items-center flex-1 min-w-0"
       >
         <div className="relative w-full flex items-center">
           <input
@@ -255,7 +271,7 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
       </form>
 
       {/* Right: + Add URL CTA, Quick Theme Toggle, Notifications, Profile Avatar */}
-      <div className="flex items-center gap-2 relative">
+      <div className="flex items-center gap-2 relative shrink-0">
         <button
           type="button"
           onClick={() => setIsAddUrlOpen(true)}
@@ -328,11 +344,11 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
                 </div>
 
                 <div className="flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                  <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-[11px]">Autonomous Radar Ready</p>
+                    <p className="font-medium text-[11px]">Agentic Radar Online</p>
                     <p className="text-[10px] text-zinc-400">
-                      Grounded on your my_focus.md active directives.
+                      YouTube wide scraping & micro-triage enabled.
                     </p>
                   </div>
                 </div>
@@ -341,57 +357,88 @@ export function TopHeader({ backendOnline, onToggleSidebar }: TopHeaderProps) {
           )}
         </div>
 
-        {/* Profile / Settings Trigger Avatar */}
+        {/* Profile Avatar Popover */}
         <div className="relative" ref={profileRef}>
           <button
             type="button"
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 flex items-center justify-center text-white text-[11px] font-bold cursor-pointer ring-1 ring-zinc-300 dark:ring-zinc-700 hover:opacity-90 transition-opacity"
-            title="User Profile & Quick Options"
+            className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-xs font-semibold hover:border-emerald-500 transition-colors cursor-pointer"
+            title="User Profile & Quick Settings"
           >
             PK
           </button>
 
           {isProfileOpen && (
             <div
-              className={`absolute right-0 mt-2 w-56 rounded-2xl shadow-xl border p-2 space-y-1 z-50 text-xs animate-in fade-in slide-in-from-top-2 duration-150 ${
+              className={`absolute right-0 mt-2 w-64 rounded-2xl shadow-xl border p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1 ${
                 isDark
                   ? 'bg-[#181820] border-[#27272a] text-[#f4f4f5]'
                   : 'bg-white border-[#e4e4e7] text-[#18181b]'
               }`}
             >
-              <div className="px-3 py-2 border-b border-zinc-200/20">
-                <p className="font-bold text-xs">PKI Curator</p>
-                <p className="text-[10px] text-zinc-400">Local-First PKM Learner</p>
+              <div className="p-2 border-b border-zinc-200/20">
+                <p className="font-bold text-xs">PKI Interactive Scholar</p>
+                <p className="text-[10px] text-zinc-400">Level 2 Tool-Using Agent Companion</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => {
-                  setActiveStage('settings')
                   setIsProfileOpen(false)
+                  setActiveStage('vault')
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left cursor-pointer transition-colors ${
+                className={`w-full flex items-center gap-2 p-2 rounded-xl text-xs transition-colors cursor-pointer ${
                   isDark ? 'hover:bg-[#27272a]' : 'hover:bg-[#f4f4f5]'
                 }`}
               >
-                <SettingsIcon className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Engine Settings</span>
+                <Layers className="w-3.5 h-3.5 text-zinc-400" />
+                <span>My Vault Notes</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setIsVaultSettingsOpen(true)
                   setIsProfileOpen(false)
+                  setIsVaultSettingsOpen(true)
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left cursor-pointer transition-colors ${
+                className={`w-full flex items-center gap-2 p-2 rounded-xl text-xs transition-colors cursor-pointer ${
                   isDark ? 'hover:bg-[#27272a]' : 'hover:bg-[#f4f4f5]'
                 }`}
               >
-                <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Configure Obsidian Path</span>
+                <SettingsIcon className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Obsidian Vault Settings</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false)
+                  setActiveStage('focus')
+                }}
+                className={`w-full flex items-center gap-2 p-2 rounded-xl text-xs transition-colors cursor-pointer ${
+                  isDark ? 'hover:bg-[#27272a]' : 'hover:bg-[#f4f4f5]'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Edit my_focus.md</span>
+              </button>
+
+              <div className="border-t border-zinc-200/20 pt-1">
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-[#27272a] text-zinc-400' : 'hover:bg-[#f4f4f5] text-zinc-600'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Documentation & SRS</span>
+                  </span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </div>
           )}
         </div>

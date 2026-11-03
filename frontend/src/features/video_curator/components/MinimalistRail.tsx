@@ -6,8 +6,6 @@ import {
   BookOpen,
   History,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   HardDrive,
 } from 'lucide-react'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
@@ -23,7 +21,6 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
     activeStage,
     setActiveStage,
     isSidebarExpanded,
-    toggleSidebar,
     vaultPath,
   } = useVideoCuratorStore()
   const { isDark } = useTheme()
@@ -31,51 +28,43 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
   const navItems: {
     id: ActiveStage
     label: string
-    subLabel: string
     icon: typeof Home
     badge?: string
   }[] = [
     {
       id: 'home',
       label: 'Home Feed',
-      subLabel: 'Curated Radar',
       icon: Home,
     },
     {
       id: 'curate',
       label: 'Command Deck',
-      subLabel: 'Synthesis Workspace',
       icon: Sparkles,
       badge: 'Active AI',
     },
     {
       id: 'vault',
       label: 'My Vault',
-      subLabel: 'Obsidian Notes',
       icon: Layers,
     },
     {
       id: 'focus',
       label: 'Focus Studio',
-      subLabel: 'Directive Grounding',
       icon: Target,
     },
     {
       id: 'library',
       label: 'Library',
-      subLabel: 'Timestamps & Sheets',
       icon: BookOpen,
     },
     {
       id: 'history',
       label: 'History',
-      subLabel: 'Cognitive Retention',
       icon: History,
     },
     {
       id: 'settings',
       label: 'Settings',
-      subLabel: 'AI & Engine Config',
       icon: Settings,
     },
   ]
@@ -100,7 +89,7 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
       {/* Top Section / Header when expanded */}
       <div className="flex flex-col gap-3 w-full">
         {isSidebarExpanded && (
-          <div className="flex items-center justify-between px-2 pt-1 pb-1">
+          <div className="flex items-center px-2 pt-1 pb-1">
             <span
               className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
                 isDark ? 'text-zinc-400' : 'text-zinc-500'
@@ -108,18 +97,6 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
             >
               Workspace Navigator
             </span>
-            <button
-              type="button"
-              onClick={() => toggleSidebar(false)}
-              className={`p-1 rounded-md transition-colors cursor-pointer ${
-                isDark
-                  ? 'text-zinc-400 hover:text-white hover:bg-[#1f1f23]'
-                  : 'text-zinc-500 hover:text-zinc-900 hover:bg-[#f4f4f5]'
-              }`}
-              title="Collapse Sidebar"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
           </div>
         )}
 
@@ -145,7 +122,7 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
                         ? 'text-[#71717a] hover:text-[#f4f4f5] hover:bg-[#18181b]'
                         : 'text-[#71717a] hover:text-[#18181b] hover:bg-[#f4f4f5]'
                   }`}
-                  title={`${item.label} — ${item.subLabel}`}
+                  title={item.label}
                 >
                   <div className="relative">
                     <Icon
@@ -182,7 +159,7 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
                 key={item.id}
                 type="button"
                 onClick={() => setActiveStage(item.id)}
-                className={`w-full px-3 py-2 rounded-xl flex items-center justify-between transition-all cursor-pointer group text-left ${
+                className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer group text-left ${
                   active
                     ? isDark
                       ? 'bg-[#1f1f23] text-white shadow-xs font-semibold'
@@ -206,16 +183,9 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
                   >
                     <Icon className="w-4 h-4" />
                   </div>
-                  <div className="truncate">
-                    <div className="text-xs leading-snug truncate">{item.label}</div>
-                    <div
-                      className={`text-[10px] font-normal leading-tight truncate ${
-                        isDark ? 'text-zinc-500' : 'text-zinc-400'
-                      }`}
-                    >
-                      {item.subLabel}
-                    </div>
-                  </div>
+                  <span className="text-xs font-medium leading-snug truncate">
+                    {item.label}
+                  </span>
                 </div>
 
                 {item.badge && (
@@ -258,53 +228,26 @@ export function MinimalistRail({ backendOnline }: MinimalistRailProps) {
               </div>
             </div>
 
-            {/* Engine Status & Collapse Toggle */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2 text-xs">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    backendOnline
-                      ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]'
-                      : 'bg-rose-500'
-                  }`}
-                />
-                <span
-                  className={`text-[11px] font-medium ${
-                    isDark ? 'text-zinc-300' : 'text-zinc-700'
-                  }`}
-                >
-                  {backendOnline ? 'Engine Online' : 'Engine Offline'}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleSidebar(false)}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isDark
-                    ? 'hover:bg-[#1f1f23] text-zinc-400 hover:text-white'
-                    : 'hover:bg-[#f4f4f5] text-zinc-600 hover:text-zinc-900'
+            {/* Engine Status */}
+            <div className="flex items-center gap-2 px-1 pt-1 text-xs">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  backendOnline
+                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]'
+                    : 'bg-rose-500'
                 }`}
-                title="Collapse Sidebar"
+              />
+              <span
+                className={`text-[11px] font-medium ${
+                  isDark ? 'text-zinc-300' : 'text-zinc-700'
+                }`}
               >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
+                {backendOnline ? 'Engine Online' : 'Engine Offline'}
+              </span>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => toggleSidebar(true)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                isDark
-                  ? 'text-zinc-400 hover:text-white hover:bg-[#1f1f23]'
-                  : 'text-zinc-500 hover:text-zinc-900 hover:bg-[#f4f4f5]'
-              }`}
-              title="Expand Sidebar"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
             <div
               className={`w-2 h-2 rounded-full transition-all ${
                 backendOnline
