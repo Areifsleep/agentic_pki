@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { extractVideoId } from '@/lib/utils'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useTheme } from '../hooks/useTheme'
 import type { VaultNotesResponse, VaultNoteItem } from '../types'
@@ -41,6 +42,7 @@ export function MyVaultView() {
     setActiveStage,
     setVideoUrl,
     setActiveNote,
+    setActiveQuiz,
   } = useVideoCuratorStore()
   const { isDark } = useTheme()
   const [activeTab, setActiveTab] = useState<'batches' | 'notes' | 'cheatsheets' | 'snippets'>('batches')
@@ -95,12 +97,18 @@ export function MyVaultView() {
           params: { path: targetPath },
         })
         if (res.data?.content) {
+          const resolvedVideoId = collection.videoId || extractVideoId(res.data.content) || undefined
+          if (resolvedVideoId) {
+            setVideoUrl(`https://www.youtube.com/watch?v=${resolvedVideoId}`)
+          }
+          setActiveQuiz(null)
           setActiveNote({
             title: res.data.title || collection.title,
             category: collection.category,
             content: res.data.content,
             file_path: res.data.file_path,
             is_vault_file: true,
+            video_id: resolvedVideoId,
           })
           setActiveStage('curate')
           toast.success(`Membuka "${collection.title}" di Reading Sanctuary!`)
@@ -111,11 +119,13 @@ export function MyVaultView() {
       }
     }
 
+    setActiveQuiz(null)
     setActiveNote({
       title: collection.title,
       category: collection.category,
       content: `# ${collection.title}\n\n> **Category:** ${collection.category} • **Status:** ${collection.statusBadge}\n> **Obsidian Path:** \`${collection.obsidianPath}\`\n\n## Overview\n${collection.summary}\n`,
       is_vault_file: true,
+      video_id: collection.videoId,
     })
     setActiveStage('curate')
   }
@@ -126,15 +136,18 @@ export function MyVaultView() {
         params: { path: noteItem.file_path },
       })
       if (res.data?.content) {
-        if (noteItem.video_id) {
-          setVideoUrl(`https://www.youtube.com/watch?v=${noteItem.video_id}`)
+        const resolvedVideoId = noteItem.video_id || extractVideoId(res.data.content) || undefined
+        if (resolvedVideoId) {
+          setVideoUrl(`https://www.youtube.com/watch?v=${resolvedVideoId}`)
         }
+        setActiveQuiz(null)
         setActiveNote({
           title: res.data.title || noteItem.title,
           category: noteItem.category,
           content: res.data.content,
           file_path: res.data.file_path,
           is_vault_file: true,
+          video_id: resolvedVideoId,
         })
         setActiveStage('curate')
         toast.success(`Membuka "${res.data.title || noteItem.title}" di Reading Sanctuary!`)

@@ -55,6 +55,7 @@ export function useSynthesizeVideoMutation() {
         content: data.markdown_content,
         execution_time_seconds: data.execution_time_seconds,
         is_vault_file: false,
+        video_id: data.video_id,
       })
       setIsSavedToVault(false)
       setSavedVaultInfo(null)

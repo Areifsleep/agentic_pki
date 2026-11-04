@@ -17,6 +17,7 @@ import {
   useSaveVaultMutation,
   useFocusTargetsQuery,
   useDiscoverRadarMutation,
+  useLoadMoreRadarMutation,
 } from '../hooks/useVideoCuratorMutations'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useTheme } from '../hooks/useTheme'
@@ -32,6 +33,8 @@ export function HomeFeed() {
     setOmniSearchQuery,
     setRadarQuery,
     isRadarLoading,
+    radarHasMore,
+    isRadarLoadingMore,
     togglePlayer,
   } = useVideoCuratorStore()
 
@@ -40,6 +43,7 @@ export function HomeFeed() {
   const synthesizeMutation = useSynthesizeVideoMutation()
   const saveVaultMutation = useSaveVaultMutation()
   const discoverRadarMutation = useDiscoverRadarMutation()
+  const loadMoreMutation = useLoadMoreRadarMutation()
 
   const [savedVideos, setSavedVideos] = useState<Record<string, boolean>>({})
   const hasTriggeredInitialRef = useRef(false)
@@ -436,6 +440,31 @@ export function HomeFeed() {
             </div>
           )
         })}
+
+        {/* Tombol Muat 6 Rekomendasi Berikutnya */}
+        {radarHasMore && displayFeed.length > 0 && (
+          <div className="pt-6 pb-12 flex justify-center">
+            <button
+              type="button"
+              onClick={() => loadMoreMutation.mutate()}
+              disabled={isRadarLoadingMore}
+              className={`px-6 py-2.5 rounded-full border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs disabled:opacity-50 ${
+                isDark
+                  ? 'bg-[#17171c] border-[#27272a] hover:border-zinc-500 text-white'
+                  : 'bg-white border-[#e4e4e7] hover:border-[#17171c] text-[#18181b]'
+              }`}
+            >
+              {isRadarLoadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+                  <span>Mengambil 6 video berikutnya dari buffer...</span>
+                </>
+              ) : (
+                <span>Muat 6 Rekomendasi Lainnya</span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

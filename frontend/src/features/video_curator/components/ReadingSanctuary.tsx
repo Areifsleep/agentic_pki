@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -16,6 +16,8 @@ import {
   BrainCircuit,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { api } from '@/lib/api'
+import { extractVideoId } from '@/lib/utils'
 import { CodeBlock } from './CodeBlock'
 import { ActiveRecallStudio } from './ActiveRecallStudio'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
@@ -26,6 +28,7 @@ export function ReadingSanctuary() {
   const {
     activeNote,
     activeDraft,
+    videoUrl,
     isSavedToVault,
     savedVaultInfo,
     status,
@@ -33,6 +36,7 @@ export function ReadingSanctuary() {
     togglePlayer,
     seekToTimestamp,
     activeQuiz,
+    setActiveQuiz,
   } = useVideoCuratorStore()
 
   const { isDark } = useTheme()
@@ -42,6 +46,45 @@ export function ReadingSanctuary() {
   const [editedCategory, setEditedCategory] = useState<string>('')
   const [prevNoteId, setPrevNoteId] = useState<string>('')
   const saveVaultMutation = useSaveVaultMutation()
+
+  const effectiveVideoId = useMemo(() => {
+    return (
+      activeNote?.video_id ||
+      activeDraft?.video_id ||
+      (videoUrl ? extractVideoId(videoUrl) : null) ||
+      (activeNote?.content ? extractVideoId(activeNote.content) : null)
+    )
+  }, [activeNote, activeDraft?.video_id, videoUrl])
+
+  const lastFetchedVideoIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!effectiveVideoId) {
+      lastFetchedVideoIdRef.current = null
+      if (activeQuiz) setActiveQuiz(null)
+      return
+    }
+
+    if (lastFetchedVideoIdRef.current === effectiveVideoId) {
+      return
+    }
+    lastFetchedVideoIdRef.current = effectiveVideoId
+
+    if (activeQuiz && activeQuiz.video_id === effectiveVideoId) {
+      return
+    }
+
+    api
+      .get(`/api/v1/vault/quiz?video_id=${effectiveVideoId}`)
+      .then((res) => {
+        if (res.data?.success) {
+          setActiveQuiz(res.data)
+        }
+      })
+      .catch(() => {
+        setActiveQuiz(null)
+      })
+  }, [effectiveVideoId, setActiveQuiz, activeQuiz])
 
   // Reset edited category state when active note changes
   const currentNoteId = activeNote ? `${activeNote.title}_${activeNote.category}` : ''
@@ -290,7 +333,12 @@ export function ReadingSanctuary() {
       {/* Main Content Area */}
       {activeTab === 'quiz' ? (
         <div className="flex-1 overflow-hidden">
-          <ActiveRecallStudio />
+          <ActiveRecallStudio
+            videoId={effectiveVideoId}
+            markdownContent={activeNote?.content || activeDraft?.markdown_content}
+            filePath={activeNote?.file_path || savedVaultInfo?.file_path}
+            isVaultHistory={activeNote?.is_vault_file}
+          />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">

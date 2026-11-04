@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   BrainCircuit,
   Sparkles,
@@ -18,6 +18,7 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { api } from '@/lib/api'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useTheme } from '../hooks/useTheme'
 import {
@@ -25,7 +26,7 @@ import {
   useSaveQuizMutation,
 } from '../hooks/useVideoCuratorMutations'
 import { extractVideoId } from '@/lib/utils'
-import type { QuizQuestionItem, SaveQuizResponse } from '../types'
+import type { QuizQuestionItem, SaveQuizResponse, VideoQuizResponse } from '../types'
 
 interface ActiveRecallStudioProps {
   videoId?: string | null
@@ -47,6 +48,7 @@ export function ActiveRecallStudio({
     activeNote,
     videoUrl,
     activeQuiz,
+    setActiveQuiz,
     quizAnswers,
     setQuizAnswer,
     resetQuizAnswers,
@@ -61,16 +63,69 @@ export function ActiveRecallStudio({
   const [numQuestions, setNumQuestions] = useState<number>(4)
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0)
   const [isFlipped, setIsFlipped] = useState<boolean>(false)
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState<boolean>(false)
 
   const effectiveVideoId =
     videoId ||
+    activeNote?.video_id ||
     activeDraft?.video_id ||
-    (videoUrl ? extractVideoId(videoUrl) : null)
+    (videoUrl ? extractVideoId(videoUrl) : null) ||
+    (activeNote?.content ? extractVideoId(activeNote.content) : null)
 
   const effectiveContent =
     markdownContent || activeNote?.content || activeDraft?.markdown_content
 
   const effectiveFilePath = filePath || activeNote?.file_path
+
+  const lastFetchedVideoIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!effectiveVideoId) {
+      lastFetchedVideoIdRef.current = null
+      if (activeQuiz) setActiveQuiz(null)
+      resetQuizAnswers()
+      return
+    }
+
+    if (lastFetchedVideoIdRef.current === effectiveVideoId) {
+      return
+    }
+    lastFetchedVideoIdRef.current = effectiveVideoId
+
+    if (activeQuiz && activeQuiz.video_id === effectiveVideoId) {
+      return
+    }
+
+    resetQuizAnswers()
+    setActiveQuiz(null)
+
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) setIsLoadingQuiz(true)
+    })
+
+    api
+      .get<VideoQuizResponse>(`/api/v1/vault/quiz?video_id=${effectiveVideoId}`)
+      .then((res) => {
+        if (!cancelled && res.data?.success) {
+          setActiveQuiz(res.data)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActiveQuiz(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingQuiz(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [effectiveVideoId, setActiveQuiz, resetQuizAnswers, activeQuiz])
 
   const handleGenerate = () => {
     if (!effectiveVideoId) return
@@ -189,6 +244,18 @@ export function ActiveRecallStudio({
         </h3>
         <p className="text-xs max-w-sm">
           Sintesis atau pilih video terlebih dahulu di panel kiri untuk membuka kuis Active Recall dan Flashcard konseptual.
+        </p>
+      </div>
+    )
+  }
+
+  // State: Loading quiz from vault
+  if (isLoadingQuiz) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-[#71717a]'}`}>
+          Memeriksa kuis tersimpan di Obsidian Vault...
         </p>
       </div>
     )

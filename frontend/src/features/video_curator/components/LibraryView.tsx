@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { extractVideoId } from '@/lib/utils'
 import { useVideoCuratorStore } from '../hooks/useVideoCuratorStore'
 import { useFocusTargetsQuery } from '../hooks/useVideoCuratorMutations'
 import { useTheme } from '../hooks/useTheme'
@@ -40,6 +41,7 @@ export function LibraryView() {
     setVideoUrl,
     setActiveStage,
     setActiveNote,
+    setActiveQuiz,
     setOmniSearchQuery,
     setRadarQuery,
   } = useVideoCuratorStore()
@@ -125,15 +127,18 @@ export function LibraryView() {
         params: { path: sheet.filePath },
       })
       if (res.data?.content) {
-        if (sheet.videoId) {
-          setVideoUrl(`https://www.youtube.com/watch?v=${sheet.videoId}`)
+        const resolvedVideoId = sheet.videoId || extractVideoId(res.data.content) || undefined
+        if (resolvedVideoId) {
+          setVideoUrl(`https://www.youtube.com/watch?v=${resolvedVideoId}`)
         }
+        setActiveQuiz(null)
         setActiveNote({
           title: res.data.title || sheet.title,
           category: sheet.subHeading,
           content: res.data.content,
           file_path: res.data.file_path,
           is_vault_file: true,
+          video_id: resolvedVideoId,
         })
         setActiveStage('curate')
         toast.success(`Membuka "${sheet.title}" di Reading Sanctuary!`)
@@ -143,11 +148,13 @@ export function LibraryView() {
       // Fallback
     }
 
+    setActiveQuiz(null)
     setActiveNote({
       title: sheet.title,
       category: sheet.subHeading,
       content: `# ${sheet.code}: ${sheet.title}\n\n> **Category:** ${sheet.subHeading}\n\n${sheet.desc}\n`,
       is_vault_file: true,
+      video_id: sheet.videoId,
     })
     setActiveStage('curate')
     toast.success(`Membuka berkas sintesis "${sheet.title}" di Reading Sanctuary`)

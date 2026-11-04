@@ -23,6 +23,7 @@ export interface ActiveNoteView {
   file_path?: string
   execution_time_seconds?: number
   is_vault_file?: boolean
+  video_id?: string
 }
 
 interface VideoCuratorState {
