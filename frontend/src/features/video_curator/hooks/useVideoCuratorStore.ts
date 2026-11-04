@@ -92,6 +92,9 @@ interface VideoCuratorState {
   vaultPath: string
   isVaultSettingsOpen: boolean
   setIsVaultSettingsOpen: (open: boolean) => void
+  isVaultChatOpen: boolean
+  setIsVaultChatOpen: (open: boolean) => void
+  toggleVaultChat: (open?: boolean) => void
   vaultSettings: VaultSettings | null
   setVaultSettings: (settings: VaultSettings | null) => void
 
@@ -245,6 +248,10 @@ export const useVideoCuratorStore = create<VideoCuratorState>((set) => ({
   vaultPath: '',
   isVaultSettingsOpen: false,
   setIsVaultSettingsOpen: (isVaultSettingsOpen) => set({ isVaultSettingsOpen }),
+  isVaultChatOpen: false,
+  setIsVaultChatOpen: (isVaultChatOpen) => set({ isVaultChatOpen }),
+  toggleVaultChat: (open) =>
+    set((state) => ({ isVaultChatOpen: open ?? !state.isVaultChatOpen })),
   vaultSettings: null,
   setVaultSettings: (vaultSettings) => set({ vaultSettings }),
 

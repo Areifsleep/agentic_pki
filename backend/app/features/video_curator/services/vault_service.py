@@ -162,12 +162,6 @@ def answer_vault_chat(
         selected_files = [index_items[0].get("file_path", "")] if index_items else []
 
     # Stage 2: Grounded Synthesis
-    # Detect if user query requires timestamp or dialogue-level grounding
-    needs_transcript = any(
-        kw in question.lower()
-        for kw in ["menit", "detik", "timestamp", "transkrip", "transcript", "dialog", "pembicara", "kutipan", "waktu"]
-    )
-
     # Filter valid existing files
     base_vault = Path(settings.curator_vault_path).expanduser().resolve()
     valid_contents: list[tuple[str, str]] = []
@@ -187,23 +181,30 @@ def answer_vault_chat(
             p = base_vault / f_path
         if p.exists() and p.is_file():
             try:
-                note_text = p.read_text(encoding="utf-8")[:6000]
+                note_text = p.read_text(encoding="utf-8")[:8000]
                 doc_text = note_text
 
-                # Selectively append raw transcript with timestamps if query asks for dialogue/timestamps
-                if needs_transcript:
-                    rel_p = str(p.relative_to(base_vault)) if p.is_relative_to(base_vault) else p.name
-                    matched_item = index_map.get(str(p)) or index_map.get(rel_p) or index_map.get(p.name)
-                    trans_rel = matched_item.get("transcript_path") if matched_item else None
-                    trans_file = None
-                    if trans_rel:
-                        trans_file = base_vault / trans_rel
-                    elif matched_item and matched_item.get("video_id"):
-                        trans_file = base_vault / "_transcripts" / f"{matched_item.get('video_id')}.txt"
+                # Always locate original raw transcript from _transcripts/<video_id>.txt to enrich context
+                rel_p = str(p.relative_to(base_vault)) if p.is_relative_to(base_vault) else p.name
+                matched_item = index_map.get(str(p)) or index_map.get(rel_p) or index_map.get(p.name)
+                
+                trans_file = None
+                if matched_item and matched_item.get("transcript_path"):
+                    trans_file = base_vault / matched_item.get("transcript_path")
+                elif matched_item and matched_item.get("video_id"):
+                    trans_file = base_vault / "_transcripts" / f"{matched_item.get('video_id')}.txt"
 
-                    if trans_file and trans_file.exists():
-                        trans_content = trans_file.read_text(encoding="utf-8")[:8000]
-                        doc_text += f"\n\n### RAW TRANSCRIPT (TIMESTAMPS):\n{trans_content}"
+                if not trans_file or not trans_file.exists():
+                    # Fallback: scan for 11-char video ID in note content/frontmatter
+                    m = re.search(r"(?:v=|youtu\.be/|shorts/|source:\s*https?://.*?watch\?v=)([a-zA-Z0-9_-]{11})", note_text)
+                    if m:
+                        cand = base_vault / "_transcripts" / f"{m.group(1)}.txt"
+                        if cand.exists():
+                            trans_file = cand
+
+                if trans_file and trans_file.exists():
+                    trans_content = trans_file.read_text(encoding="utf-8")[:12000]
+                    doc_text += f"\n\n### VERBATIM ORIGINAL TRANSCRIPT (WITH TIMESTAMPS):\n{trans_content}"
 
                 valid_contents.append((p.name, doc_text))
             except Exception:

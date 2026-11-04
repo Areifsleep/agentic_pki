@@ -245,16 +245,16 @@ Kembalikan HANYA format JSON:
 def build_vault_synthesis_prompt(docs_text: str, question: str) -> str:
     """Assembles prompt for Stage 2 Grounded RAG Synthesis."""
     return f"""Anda adalah Asisten Vault-Wide Knowledge Base (Second Brain).
-Jawab pertanyaan pengguna secara akurat, terstruktur, dan berbasiskan DOKUMEN CATATAN TERPILIH berikut.
-Sebutkan sitasi nama catatan (contoh: [NamaCatatan.md]) ketika mengutip konsep penting.
+Jawab pertanyaan pengguna secara akurat, mendalam, dan berbasiskan DOKUMEN CATATAN TERPILIH serta TRANSKRIP ASLINYA berikut.
+Sebutkan sitasi nama catatan (contoh: [NamaCatatan.md]) dan timestamp jika relevan (contoh: [04:15]) ketika mengutip konsep penting atau rujukan dari pembicara.
 
-DOKUMEN CATATAN:
+DOKUMEN CATATAN & TRANSKRIP TERPILIH:
 {docs_text}
 
 PERTANYAAN PENGGUNA:
 \"{question}\"
 
-Berikan jawaban langsung dalam Bahasa Indonesia yang lugas dan profesional:
+Berikan jawaban langsung dalam Bahasa Indonesia yang lugas, terstruktur, dan profesional:
 """
 
 

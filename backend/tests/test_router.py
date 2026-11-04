@@ -355,3 +355,43 @@ class TestRadarAndVaultChatEndpoints:
         assert res_data["success"] is True
         assert "async def" in res_data["answer"]
         assert len(res_data["cited_files"]) > 0
+
+    @patch("app.features.video_curator.service.get_genai_client")
+    def test_vault_chat_with_transcript_context(self, mock_get_client, tmp_path: Path):
+        vault_root = tmp_path / "Vault"
+        settings.OBSIDIAN_VAULT_PATH = vault_root
+
+        # Save note with video_id
+        client.post(
+            "/api/v1/vault/save",
+            json={
+                "category": "Backend",
+                "title": "Celery Worker",
+                "content": "# Celery Worker\nTask queues and workers.",
+                "video_id": "vid12345678",
+                "transcript_text": "[01:15] Celery uses RabbitMQ or Redis as broker.",
+            },
+        )
+
+        mock_gen_client = MagicMock()
+        mock_router_resp = MagicMock()
+        mock_router_resp.text = json.dumps({
+            "selected_files": ["Backend/celery-worker.md"]
+        })
+
+        mock_synth_resp = MagicMock()
+        mock_synth_resp.text = "Celery adalah task queue [01:15] [celery-worker.md]."
+
+        mock_gen_client.models.generate_content.side_effect = [mock_router_resp, mock_synth_resp]
+        mock_get_client.return_value = mock_gen_client
+
+        # Notice: question does NOT contain timestamp keywords like "timestamp" or "menit"
+        resp = client.post("/api/v1/vault/chat", json={"question": "Jelaskan celery"})
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+        # Check synthesis call arguments: should include VERBATIM ORIGINAL TRANSCRIPT
+        synth_call = mock_gen_client.models.generate_content.call_args_list[1]
+        synth_prompt_sent = synth_call.kwargs.get("contents", "")
+        assert "VERBATIM ORIGINAL TRANSCRIPT" in synth_prompt_sent
+        assert "Celery uses RabbitMQ" in synth_prompt_sent

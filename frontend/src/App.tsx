@@ -17,6 +17,7 @@ import { CommandDeck } from './features/video_curator/components/CommandDeck'
 import { ReadingSanctuary } from './features/video_curator/components/ReadingSanctuary'
 import { VaultSettingsModal } from './features/video_curator/components/VaultSettingsModal'
 import { EmbeddedVideoCompanion } from './features/video_curator/components/EmbeddedVideoCompanion'
+import { GlobalVaultChatSheet } from './features/video_curator/components/GlobalVaultChatSheet'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,6 +120,9 @@ function MainStage() {
 
       {/* Global Obsidian Vault Settings Modal */}
       <VaultSettingsModal />
+
+      {/* Global 2-Stage Hierarchical Vault Chat RAG Sheet & FAB */}
+      <GlobalVaultChatSheet />
 
       {/* Toast Feedback */}
       <Toaster
